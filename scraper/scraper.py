@@ -17,14 +17,14 @@ class Scraper:
 
     def __init__(self, scraper_config: Dict[str, Any]):
         self.target_url = scraper_config['target_url']
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
 
     def get_current_listings(self) -> Dict[str, Listing]:
         """Fetches the website and returns a dictionary of listings."""
         try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-            with requests.get(self.target_url, headers=headers, timeout=20) as response:
+            with requests.get(self.target_url, headers=self.headers, timeout=20) as response:
                 response.raise_for_status()
                 return self._parse_html(response.text)
         except requests.exceptions.RequestException as e:

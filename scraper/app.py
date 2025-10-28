@@ -86,7 +86,9 @@ class App:
 
     def _process_new_listings(self, new_ids: Set[str], current_listings: Dict[str, Listing]):
         """Processes and notifies about new listings."""
-        logger.info(f"Found {len(new_ids)} new listing(s)!")
+        green = "\033[92m"
+        reset = "\033[0m"
+        logger.info(f"{green}Found {len(new_ids)} new listing(s)!{reset}")
         for new_id in new_ids:
             listing = current_listings[new_id]
             if not self._is_listing_filtered(listing):

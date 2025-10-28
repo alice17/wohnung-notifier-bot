@@ -14,10 +14,10 @@ class TelegramNotifier:
     def __init__(self, telegram_config: Dict[str, Any]):
         self.bot_token = telegram_config['bot_token']
         self.chat_id = telegram_config['chat_id']
+        self.url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
 
     def send_message(self, message: str):
         """Sends a message to the configured Telegram chat."""
-        url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
         payload = {
             "chat_id": self.chat_id,
             "text": message,
@@ -25,7 +25,7 @@ class TelegramNotifier:
             "disable_web_page_preview": True
         }
         try:
-            response = requests.post(url, data=payload, timeout=10)
+            response = requests.post(self.url, data=payload, timeout=10)
             logger.info(f"Telegram response: {response.json().get('ok', False)}")
         except Exception as e:
             logger.error(f"Error sending Telegram message: {e}")
