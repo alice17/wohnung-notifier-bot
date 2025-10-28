@@ -10,11 +10,11 @@ A Python script that monitors `inberlinwohnen.de` for new apartment listings, fi
 
 ## ✨ Key Features
 
-- **Intelligent Scraping:** Instead of watching the whole page, the script parses individual apartment listings, tracking them by their unique URL.
-- **Configurable Filters:** Only get notified about apartments that fit your needs. Filter by price, size (SQM), number of rooms, and WBS requirement.
-- **Telegram Notifications:** Get instant alerts delivered to your phone, giving you a head-start on your application.
-- **Resilient:** Stores known listings in a local file (`known_listings_by_url.json`) to pick up where it left off after a restart.
-- **Containerized:** Includes a `Containerfile` for easy deployment with Docker or Podman.
+-   **Intelligent Scraping:** Instead of watching the whole page, the script parses individual apartment listings, tracking them by their unique URL.
+-   **Configurable Filters:** Only get notified about apartments that fit your needs. Filter by price, size (SQM), number of rooms, and WBS requirement.
+-   **Telegram Notifications:** Get instant alerts delivered to your phone, giving you a head-start on your application.
+-   **Resilient:** Stores known listings in a local file (`known_listings_by_url.json`) to pick up where it left off after a restart.
+-   **Containerized:** Includes a `Containerfile` for easy deployment with Docker or Podman.
 
 -----
 
@@ -162,3 +162,12 @@ A `Containerfile` is included for easy containerized deployment.
 
 -   **Polling Frequency:** Be respectful. Do not set the `poll_interval_seconds` too low. A 60-300 second (1-5 minute) interval is effective and won't spam the website's servers.
 -   **Website Changes:** This script relies on the website's HTML structure. If `inberlinwohnen.de` changes its layout, the script may break and will need to be updated.
+
+-----
+
+## 📝 TODO
+
+-   **Add More Websites:** Implement a provider pattern to easily add support for other real estate websites (e.g., `degewo`, `vonovia`).
+-   **Support More Notifiers:** Add other notification channels like Email, Slack, or Pushbullet.
+-   **Add a Test Suite:** Introduce `pytest` to write unit and integration tests for better reliability.
+-   **Improve Error Handling:** Make the scraper more resilient to temporary network issues or minor HTML changes.
