@@ -1,5 +1,6 @@
 import logging
 from typing import Dict, Any
+import urllib.parse
 
 import requests
 
@@ -34,10 +35,13 @@ class TelegramNotifier:
         """Formats a listing's details into a human-readable message."""
         escaped_link = listing.link.replace('_', r'\_').replace('[', r'\[').replace(']', r'\]') \
             if listing.link != 'N/A' else f"Link not found, ID: {listing.identifier}"
+        
+        google_maps_url = "https://www.google.com/maps/search/?api=1&query=" + urllib.parse.quote(listing.address)
+        address_line = f"[{listing.address}]({google_maps_url})"
 
         return (
             f"🏠 *New Apartment Listing!*\n\n"
-            f"📍 *Address:* {listing.address}\n"
+            f"📍 *Address:* {address_line}\n"
             f"📜 *WBS:* {listing.wbs}\n"
             f"💰 *Price (Cold):* {listing.price_cold} €\n"
             f"💶 *Price (Total):* {listing.price_total} €\n"

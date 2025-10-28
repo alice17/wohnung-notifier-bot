@@ -10,7 +10,8 @@ from scraper.scraper import Scraper
 from scraper.store import ListingStore
 
 logger = logging.getLogger(__name__)
-
+GREEN = "\033[92m"
+RESET = "\033[0m"
 
 class App:
     """The main application class orchestrating the monitoring process."""
@@ -86,9 +87,8 @@ class App:
 
     def _process_new_listings(self, new_ids: Set[str], current_listings: Dict[str, Listing]):
         """Processes and notifies about new listings."""
-        green = "\033[92m"
-        reset = "\033[0m"
-        logger.info(f"{green}Found {len(new_ids)} new listing(s)!{reset}")
+
+        logger.info(f"{GREEN}Found {len(new_ids)} new listing(s)!{RESET}")
         for new_id in new_ids:
             listing = current_listings[new_id]
             if not self._is_listing_filtered(listing):
