@@ -1,0 +1,47 @@
+import logging
+from typing import Dict, Any
+
+import requests
+
+from scraper.listing import Listing
+
+logger = logging.getLogger(__name__)
+
+
+class TelegramNotifier:
+    """Handles sending notifications via Telegram."""
+
+    def __init__(self, telegram_config: Dict[str, Any]):
+        self.bot_token = telegram_config['bot_token']
+        self.chat_id = telegram_config['chat_id']
+
+    def send_message(self, message: str):
+        """Sends a message to the configured Telegram chat."""
+        url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+        payload = {
+            "chat_id": self.chat_id,
+            "text": message,
+            "parse_mode": "Markdown",
+            "disable_web_page_preview": True
+        }
+        try:
+            response = requests.post(url, data=payload, timeout=10)
+            logger.info(f"Telegram response: {response.json().get('ok', False)}")
+        except Exception as e:
+            logger.error(f"Error sending Telegram message: {e}")
+
+    def format_listing_message(self, listing: Listing) -> str:
+        """Formats a listing's details into a human-readable message."""
+        escaped_link = listing.link.replace('_', r'\_').replace('[', r'\[').replace(']', r'\]') \
+            if listing.link != 'N/A' else f"Link not found, ID: {listing.identifier}"
+
+        return (
+            f"🏠 *New Apartment Listing!*\n\n"
+            f"📍 *Address:* {listing.address}\n"
+            f"📜 *WBS:* {listing.wbs}\n"
+            f"💰 *Price (Cold):* {listing.price_cold} €\n"
+            f"💶 *Price (Total):* {listing.price_total} €\n"
+            f"📏 *Size:* {listing.sqm} m²\n"
+            f"🚪 *Rooms:* {listing.rooms}\n\n"
+            f"🔗 *Details:* {escaped_link}"
+        )
