@@ -58,43 +58,6 @@ A Python script that monitors `inberlinwohnen.de` for new apartment listings, fi
 
 You must create a `settings.json` file in the same directory as the script. This is where you'll put your Telegram credentials and define your apartment filters.
 
-**Copy the template below and save it as `settings.json`:**
-
-```json
-{
-  "telegram": {
-    "bot_token": "YOUR_TELEGRAM_BOT_TOKEN_HERE",
-    "chat_id": "YOUR_TELEGRAM_CHAT_ID_HERE"
-  },
-  "scraper": {
-    "poll_interval_seconds": 120,
-    "target_url": "https://www.inberlinwohnen.de/wohnungsfinder"
-  },
-  "filters": {
-    "enabled": true,
-    "properties": {
-      "price_total": {
-        "min": null,
-        "max": 1500
-      },
-      "sqm": {
-        "min": 50,
-        "max": 100
-      },
-      "rooms": {
-        "min": 2,
-        "max": null
-      },
-      "wbs": {
-        "allowed_values": [
-          "nicht erforderlich",
-          "N/A"
-        ]
-      }
-    }
-  }
-}
-```
 
 #### a) Getting Telegram Credentials
 
@@ -167,7 +130,8 @@ A `Containerfile` is included for easy containerized deployment.
 
 ## 📝 TODO
 
--   **Add More Websites:** Implement a provider pattern to easily add support for other real estate websites (e.g., `degewo`, `vonovia`).
--   **Support More Notifiers:** Add other notification channels like Email, Slack, or Pushbullet.
+-   **Add More Websites:** Implement a provider pattern to easily add support for other real estate websites (e.g., `Deutsche Wohnen`, `Ohne Makler`).
 -   **Add a Test Suite:** Introduce `pytest` to write unit and integration tests for better reliability.
 -   **Improve Error Handling:** Make the scraper more resilient to temporary network issues or minor HTML changes.
+-   **Add Google maps link to listing address**
+-   **Map PLZ (postal code) to the specific bezirk:** which can then be filtered using the settings (https://www.berlinstadtservice.de/xinh/Postleitzahlen_Berlin.html).
