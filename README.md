@@ -133,4 +133,3 @@ A `Containerfile` is included for easy containerized deployment.
 -   **Add More Websites:** Implement a provider pattern to easily add support for other real estate websites (e.g., `Deutsche Wohnen`, `Ohne Makler`).
 -   **Add a Test Suite:** Introduce `pytest` to write unit and integration tests for better reliability.
 -   **Improve Error Handling:** Make the scraper more resilient to temporary network issues or minor HTML changes.
--   **Map PLZ (postal code) to the specific bezirk:** which can then be filtered using the settings (https://www.berlinstadtservice.de/xinh/Postleitzahlen_Berlin.html).
