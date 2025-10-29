@@ -5,6 +5,7 @@ import time
 from typing import Set, Dict, Optional, List
 
 from scraper.config import Config
+from scraper.filter import ListingFilter
 from scraper.listing import Listing
 from scraper.notifier import TelegramNotifier
 from scraper.scraper import Scraper
@@ -25,6 +26,7 @@ class App:
         self.notifier = notifier
         self.known_listing_ids: Set[str] = set()
         self.zip_to_borough_map: Optional[Dict[str, List[str]]] = None
+        self.listing_filter: Optional[ListingFilter] = None
 
     def run(self):
         """Starts the main monitoring loop."""
@@ -35,6 +37,7 @@ class App:
             self._initialize_baseline()
 
         self._load_zip_to_borough_map()
+        self.listing_filter = ListingFilter(self.config, self.zip_to_borough_map)
 
         while True:
             if self._is_suspended_time():
@@ -112,85 +115,9 @@ class App:
 
     def _is_listing_filtered(self, listing: Listing) -> bool:
         """Checks if a listing should be filtered out based on criteria."""
-        filters = self.config.filters
-        if not filters.get("enabled", False):
-            return False
-
-        def passes_filter(value: Optional[float], rules: Dict[str, float]) -> bool:
-            if value is None:
-                return True
-            if rules.get("min") is not None and value < rules["min"]:
-                return False
-            if rules.get("max") is not None and value > rules["max"]:
-                return False
-            return True
-
-        price_val = self._to_numeric(listing.price_total)
-        if not passes_filter(price_val, filters.get("properties", {}).get("price_total", {})):
-            logger.debug(f"FILTERED (Price): {listing.price_total}€")
-            return True
-
-        sqm_val = self._to_numeric(listing.sqm)
-        if not passes_filter(sqm_val, filters.get("properties", {}).get("sqm", {})):
-            logger.debug(f"FILTERED (SQM): {listing.sqm}m²")
-            return True
-
-        rooms_val = self._to_numeric(listing.rooms)
-        if not passes_filter(rooms_val, filters.get("properties", {}).get("rooms", {})):
-            logger.debug(f"FILTERED (Rooms): {listing.rooms}")
-            return True
-
-        wbs_rules = filters.get("properties", {}).get("wbs", {})
-        wbs_allowed = wbs_rules.get("allowed_values", [])
-        if wbs_allowed and listing.wbs.strip().lower() not in [v.lower() for v in wbs_allowed]:
-            logger.debug(f"FILTERED (WBS): '{listing.wbs}'")
-            return True
-
-        borough_rules = filters.get("properties", {}).get("boroughs", {})
-        allowed_boroughs = borough_rules.get("allowed_values", [])
-        listing_boroughs = self._get_boroughs_from_address(listing.address)
-
-        if listing_boroughs:
-            listing.borough = ", ".join(listing_boroughs)
-            if allowed_boroughs:
-                allowed_set = {b.lower() for b in allowed_boroughs}
-                if not any(b.lower() in allowed_set for b in listing_boroughs):
-                    logger.debug(f"FILTERED (Borough): '{listing.borough}' not in allowed boroughs.")
-                    return True
-        elif allowed_boroughs:
-            logger.debug(f"FILTERED (Borough): Could not determine borough for address '{listing.address}'.")
-            return True
-
+        if self.listing_filter:
+            return self.listing_filter.is_filtered(listing)
         return False
-
-    def _get_boroughs_from_address(self, address: str) -> Optional[List[str]]:
-        """Gets the borough(s) for a given address string."""
-        if not self.zip_to_borough_map:
-            logger.warning("Zip to borough map is not loaded. Cannot determine borough.")
-            return None
-
-        zipcode = self._extract_zipcode(address)
-        if not zipcode:
-            logger.debug(f"No zipcode found in address: {address}")
-            return None
-
-        return self.zip_to_borough_map.get(zipcode)
-
-    @staticmethod
-    def _extract_zipcode(address: str) -> Optional[str]:
-        """Extracts a 5-digit zipcode from an address string."""
-        match = re.search(r'\b\d{5}\b', address)
-        return match.group(0) if match else None
-
-    @staticmethod
-    def _to_numeric(value_str: str) -> Optional[float]:
-        """Converts a formatted string (e.g., '1.234,56') to a float."""
-        if not isinstance(value_str, str) or value_str == 'N/A':
-            return None
-        try:
-            return float(value_str.replace('.', '').replace(',', '.'))
-        except (ValueError, TypeError):
-            return None
 
     @staticmethod
     def _is_suspended_time() -> bool:
