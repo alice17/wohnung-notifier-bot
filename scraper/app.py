@@ -1,13 +1,15 @@
 import datetime
 import logging
+import re
 import time
-from typing import Set, Dict, Optional
+from typing import Set, Dict, Optional, List
 
 from scraper.config import Config
 from scraper.listing import Listing
 from scraper.notifier import TelegramNotifier
 from scraper.scraper import Scraper
 from scraper.store import ListingStore
+import json
 
 logger = logging.getLogger(__name__)
 GREEN = "\033[92m"
@@ -22,6 +24,7 @@ class App:
         self.store = store
         self.notifier = notifier
         self.known_listing_ids: Set[str] = set()
+        self.zip_to_borough_map: Optional[Dict[str, List[str]]] = None
 
     def run(self):
         """Starts the main monitoring loop."""
@@ -30,6 +33,8 @@ class App:
 
         if not self.known_listing_ids:
             self._initialize_baseline()
+
+        self._load_zip_to_borough_map()
 
         while True:
             if self._is_suspended_time():
@@ -47,6 +52,15 @@ class App:
 
             logger.info(f"Sleeping for {self.config.scraper['poll_interval_seconds']} seconds...")
             time.sleep(self.config.scraper['poll_interval_seconds'])
+
+    def _load_zip_to_borough_map(self):
+        """Loads the zipcode to borough mapping from the JSON file."""
+        try:
+            with open('data/plz_bezirk.json', 'r', encoding='utf-8') as f:
+                self.zip_to_borough_map = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logger.error(f"Failed to load or parse plz_bezirk.json: {e}")
+            self.zip_to_borough_map = {}
 
     def _initialize_baseline(self):
         """Fetches the initial set of listings to establish a baseline."""
@@ -132,7 +146,41 @@ class App:
             logger.debug(f"FILTERED (WBS): '{listing.wbs}'")
             return True
 
+        borough_rules = filters.get("properties", {}).get("boroughs", {})
+        allowed_boroughs = borough_rules.get("allowed_values", [])
+        listing_boroughs = self._get_boroughs_from_address(listing.address)
+
+        if listing_boroughs:
+            listing.borough = ", ".join(listing_boroughs)
+            if allowed_boroughs:
+                allowed_set = {b.lower() for b in allowed_boroughs}
+                if not any(b.lower() in allowed_set for b in listing_boroughs):
+                    logger.debug(f"FILTERED (Borough): '{listing.borough}' not in allowed boroughs.")
+                    return True
+        elif allowed_boroughs:
+            logger.debug(f"FILTERED (Borough): Could not determine borough for address '{listing.address}'.")
+            return True
+
         return False
+
+    def _get_boroughs_from_address(self, address: str) -> Optional[List[str]]:
+        """Gets the borough(s) for a given address string."""
+        if not self.zip_to_borough_map:
+            logger.warning("Zip to borough map is not loaded. Cannot determine borough.")
+            return None
+
+        zipcode = self._extract_zipcode(address)
+        if not zipcode:
+            logger.debug(f"No zipcode found in address: {address}")
+            return None
+
+        return self.zip_to_borough_map.get(zipcode)
+
+    @staticmethod
+    def _extract_zipcode(address: str) -> Optional[str]:
+        """Extracts a 5-digit zipcode from an address string."""
+        match = re.search(r'\b\d{5}\b', address)
+        return match.group(0) if match else None
 
     @staticmethod
     def _to_numeric(value_str: str) -> Optional[float]:

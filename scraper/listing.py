@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 class Listing:
     """Represents a single apartment listing with its details."""
     address: str = "N/A"
+    borough: str = "N/A"
     sqm: str = "N/A"
     price_cold: str = "N/A"
     price_total: str = "N/A"

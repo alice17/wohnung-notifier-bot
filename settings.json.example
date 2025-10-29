@@ -27,6 +27,13 @@
           "nicht erforderlich",
           "N/A"
         ]
+      },
+      # check data/plz_bezirk.json for the complete list
+      "boroughs": {
+        "allowed_values": [
+          "Mitte",
+          "Kreuzberg"
+        ]
       }
     }
   }
