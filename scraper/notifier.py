@@ -33,7 +33,7 @@ class TelegramNotifier:
 
     def format_listing_message(self, listing: Listing) -> str:
         """Formats the details of a listing into a message string."""
-        escaped_link = listing.link.replace('_', r'\_').replace('[', r'\[').replace(']', r'\]') \
+        escaped_link = listing.link.replace('_', r'\_').replace('[', r'\[') \
             if listing.link != 'N/A' else f"Link not found, ID: {listing.identifier}"
         
         google_maps_url = "https://www.google.com/maps/search/?api=1&query=" + urllib.parse.quote(listing.address)
@@ -41,7 +41,7 @@ class TelegramNotifier:
 
         return (
             f"🏠 *New Listing*\n\n"
-            f"📍 *Address:* {listing.address}\n"
+            f"📍 *Address:* address_line\n"
             f"🏙️ *Borough:* {listing.borough}\n"
             f"📐 *SQM:* {listing.sqm} m²\n"
             f"💶 *Cold Rent:* {listing.price_cold} €\n"

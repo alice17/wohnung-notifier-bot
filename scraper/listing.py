@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Listing:
     """Represents a single apartment listing with its details."""
+    source: str
     address: str = "N/A"
     borough: str = "N/A"
     sqm: str = "N/A"

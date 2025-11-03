@@ -1,9 +1,20 @@
 import json
 import logging
 import os
-from typing import Set
+from typing import Dict
+from dataclasses import asdict, is_dataclass
+
+from scraper.listing import Listing
 
 logger = logging.getLogger(__name__)
+
+
+class EnhancedJSONEncoder(json.JSONEncoder):
+    """A JSON encoder that can handle dataclasses."""
+    def default(self, o):
+        if is_dataclass(o):
+            return asdict(o)
+        return super().default(o)
 
 
 class ListingStore:
@@ -12,22 +23,25 @@ class ListingStore:
     def __init__(self, filepath: str = "known_listings_by_url.json"):
         self.filepath = filepath
 
-    def load(self) -> Set[str]:
+    def load(self) -> Dict[str, Listing]:
         """Loads the set of known listing identifiers from the file."""
         if not os.path.exists(self.filepath):
-            return set()
+            return {}
         try:
             with open(self.filepath, 'r') as f:
                 data = json.load(f)
-                return set(data.get("listing_urls", []))
+                return {
+                    identifier: Listing(**listing_data)
+                    for identifier, listing_data in data.items()
+                }
         except (json.JSONDecodeError, IOError) as e:
             logger.error(f"Error reading {self.filepath}: {e}. Starting fresh.")
-            return set()
+            return {}
 
-    def save(self, listing_ids: Set[str]):
+    def save(self, listings: Dict[str, Listing]):
         """Saves the current set of listing identifiers to the file."""
         try:
             with open(self.filepath, 'w') as f:
-                json.dump({"listing_urls": sorted(list(listing_ids))}, f, indent=2)
+                json.dump(listings, f, indent=2, cls=EnhancedJSONEncoder)
         except IOError as e:
             logger.error(f"Error writing to {self.filepath}: {e}")

@@ -1,17 +1,14 @@
-Here is a README.md file for the project you've built. You can save this as `README.md` in your project's folder.
-
------
-
 # 🏠 Berlin Apartment Notifier
 
-A Python script that monitors `inberlinwohnen.de` for new apartment listings, filters them based on your criteria, and sends instant notifications via Telegram.
+A Python script that monitors multiple German real estate websites (including `inberlinwohnen.de` and `immowelt.de`) for new apartment listings, filters them based on your criteria, and sends instant notifications via Telegram.
 
 -----
 
 ## ✨ Key Features
 
+-   **Multi-Website Support:** Natively scrapes listings from `inberlinwohnen.de` and `immowelt.de`.
 -   **Intelligent Scraping:** Instead of watching the whole page, the script parses individual apartment listings, tracking them by their unique URL.
--   **Configurable Filters:** Only get notified about apartments that fit your needs. Filter by price, size (SQM), number of rooms, and WBS requirement.
+-   **Configurable Filters:** Only get notified about apartments that fit your needs. Filter by price, size (SQM), number of rooms, WBS requirement, and Berlin boroughs.
 -   **Telegram Notifications:** Get instant alerts delivered to your phone, giving you a head-start on your application.
 -   **Resilient:** Stores known listings in a local file (`known_listings_by_url.json`) to pick up where it left off after a restart.
 -   **Containerized:** Includes a `Containerfile` for easy deployment with Docker or Podman.
@@ -20,8 +17,8 @@ A Python script that monitors `inberlinwohnen.de` for new apartment listings, fi
 
 ## ⚙️ How It Works
 
-1.  **Load Settings:** The script reads your configuration from `settings.json`.
-2.  **Fetch & Parse:** It downloads the HTML from the target URL and uses `BeautifulSoup` to find all individual apartment listings.
+1.  **Load Settings:** The script reads your configuration from `settings.json`, including which scrapers to enable.
+2.  **Fetch & Parse:** It runs all enabled scrapers, which download the HTML from their respective target sites and use `BeautifulSoup` to find all individual apartment listings.
 3.  **Extract Details:** For each listing, it extracts key details like address, price, size, rooms, and the direct link.
 4.  **Compare:** It compares the URLs of the currently visible listings against a stored list of URLs it has already seen.
 5.  **Filter:** If a new, unseen listing is found, it's checked against the filters you defined in `settings.json`.
@@ -56,8 +53,7 @@ A Python script that monitors `inberlinwohnen.de` for new apartment listings, fi
 
 ### 3. Configuration (`settings.json`)
 
-You must create a `settings.json` file in the same directory as the script. This is where you'll put your Telegram credentials and define your apartment filters.
-
+You must create a `settings.json` file from the `settings.json.example`. This is where you'll put your Telegram credentials, enable scrapers, and define your apartment filters.
 
 #### a) Getting Telegram Credentials
 
@@ -71,11 +67,13 @@ You must create a `settings.json` file in the same directory as the script. This
     -   Next, start a chat with a bot like **`@RawDataBot`**.
     -   It will reply with JSON. Find the `chat` object and copy the `id` number. This is your `chat_id`.
 
-#### b) Configuring Filters
+#### b) Configuring Filters & Scrapers
 
--   `enabled`: Set to `true` to enable filtering, `false` to get notified for *all* new listings.
--   `min` / `max`: Set the desired range for price, square meters, and rooms. Use `null` if you don't want to set a lower or upper limit.
--   `wbs`: The `allowed_values` list specifies which WBS statuses are acceptable. The script will filter out any listing whose WBS status is not in this list.
+-   `scrapers`: In this section, you can enable or disable scrapers by setting `"enabled": true` or `"enabled": false`.
+-   `filters`:
+    -   `enabled`: Set to `true` to enable filtering, `false` to get notified for *all* new listings.
+    -   `min` / `max`: Set the desired range for price, square meters, and rooms. Use `null` if you don't want to set a lower or upper limit.
+    -   `wbs` / `boroughs`: The `allowed_values` list specifies which values are acceptable. The script will filter out any listing whose value is not in this list.
 
 -----
 
@@ -86,16 +84,17 @@ You must create a `settings.json` file in the same directory as the script. This
 3.  Activate your virtual environment: `source venv/bin/activate`
 4.  Run the script:
     ```bash
-    python3 inberlinwohnen.py
+    python3 search-on-steroids.py
     ```
 
 The script will start, and you'll see log output in your terminal.
 
 ```
-INFO - Starting monitor with chat ID: 123456789
-INFO - Enhanced Monitoring (using URLs) for inberlinwohnen.de started...
-INFO - No known listings file found or readable. Fetching baseline.
-INFO - Initial baseline set with 15 listings.
+INFO - Setting up the application with 2 sources...
+INFO - No known listings file found. Fetching baseline.
+INFO - Scraper 'inberlinwohnen' successfully returned 10 listings.
+INFO - Scraper 'immowelt' successfully returned 25 listings.
+INFO - Initial baseline set with 35 listings.
 INFO - Sleeping for 120 seconds...
 ```
 
@@ -113,7 +112,7 @@ A `Containerfile` is included for easy containerized deployment.
 2.  **Run the container:**
     Make sure your `settings.json` is complete before running.
     ```bash
-    podman run -d --name wohnung-bot -v ./known_listings_by_url.json:/app/known_listings_by_url.json:z -v ./settings.json:/app/settings.json wohnung-scraper
+    podman run -d --name wohnung-bot -v ./known_listings_by_url.json:/app/known_listings_by_url.json:z -v ./settings.json:/app/settings.json:z wohnung-scraper
     ```
     -   `-d`: Run in detached mode (in the background).
     -   The first `-v` mounts the known listings file into the container so it persists across restarts.
@@ -123,13 +122,13 @@ A `Containerfile` is included for easy containerized deployment.
 
 ## ⚖️ Disclaimer
 
--   **Polling Frequency:** Be respectful. Do not set the `poll_interval_seconds` too low. A 60-300 second (1-5 minute) interval is effective and won't spam the website's servers.
--   **Website Changes:** This script relies on the website's HTML structure. If `inberlinwohnen.de` changes its layout, the script may break and will need to be updated.
+-   **Polling Frequency:** Be respectful. Do not set the `poll_interval_seconds` too low. A 120-300 second (2-5 minute) interval is effective and won't spam the websites' servers.
+-   **Website Changes:** This script relies on the websites' HTML structure. If `inberlinwohnen.de` or `immowelt.de` changes its layout, the corresponding scraper may break and will need to be updated.
 
 -----
 
 ## 📝 TODO
 
--   **Add More Websites:** Implement a provider pattern to easily add support for other real estate websites (e.g., `Deutsche Wohnen`, `Ohne Makler`).
 -   **Add a Test Suite:** Introduce `pytest` to write unit and integration tests for better reliability.
 -   **Improve Error Handling:** Make the scraper more resilient to temporary network issues or minor HTML changes.
+-   **Add more scrapers:** Ohne-Makler can be an example

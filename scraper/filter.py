@@ -44,9 +44,17 @@ class ListingFilter:
 
     def _is_filtered_by_price(self, listing: Listing) -> bool:
         price_val = self._to_numeric(listing.price_total)
+        price_type = "Warm"
+        price_to_log = listing.price_total
+
+        if price_val is None:
+            price_val = self._to_numeric(listing.price_cold)
+            price_type = "Cold"
+            price_to_log = listing.price_cold
+
         rules = self.filters.get("properties", {}).get("price_total", {})
         if not self._passes_numeric_filter(price_val, rules):
-            logger.debug(f"FILTERED (Price): {listing.price_total}€")
+            logger.info(f"FILTERED (Price {price_type}): {price_to_log}€")
             return True
         return False
 
@@ -54,7 +62,7 @@ class ListingFilter:
         sqm_val = self._to_numeric(listing.sqm)
         rules = self.filters.get("properties", {}).get("sqm", {})
         if not self._passes_numeric_filter(sqm_val, rules):
-            logger.debug(f"FILTERED (SQM): {listing.sqm}m²")
+            logger.info(f"FILTERED (SQM): {listing.sqm}m²")
             return True
         return False
 
@@ -62,7 +70,7 @@ class ListingFilter:
         rooms_val = self._to_numeric(listing.rooms)
         rules = self.filters.get("properties", {}).get("rooms", {})
         if not self._passes_numeric_filter(rooms_val, rules):
-            logger.debug(f"FILTERED (Rooms): {listing.rooms}")
+            logger.info(f"FILTERED (Rooms): {listing.rooms}")
             return True
         return False
 
@@ -70,7 +78,7 @@ class ListingFilter:
         rules = self.filters.get("properties", {}).get("wbs", {})
         allowed_values = rules.get("allowed_values", [])
         if allowed_values and listing.wbs.strip().lower() not in [v.lower() for v in allowed_values]:
-            logger.debug(f"FILTERED (WBS): '{listing.wbs}'")
+            logger.info(f"FILTERED (WBS): '{listing.wbs}'")
             return True
         return False
 
@@ -85,11 +93,11 @@ class ListingFilter:
             listing.borough = ", ".join(listing_boroughs)
             allowed_set = {b.lower() for b in allowed_boroughs}
             if not any(b.lower() in allowed_set for b in listing_boroughs):
-                logger.debug(f"FILTERED (Borough): '{listing.borough}' not in allowed boroughs.")
+                logger.info(f"FILTERED (Borough): '{listing.borough}' not in allowed boroughs.")
                 return True
         else:
-            logger.debug(f"FILTERED (Borough): Could not determine borough for address '{listing.address}'.")
-            return True
+            logger.info(f"Borough: Could not determine borough for address '{listing.address}'. Sending it anyway.")
+            return False
         return False
 
     def _get_boroughs_from_address(self, address: str) -> Optional[List[str]]:

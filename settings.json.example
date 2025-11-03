@@ -4,8 +4,7 @@
     "chat_id": "YOUR_TELEGRAM_CHAT_ID_HERE"
   },
   "scraper": {
-    "poll_interval_seconds": 120,
-    "target_url": "https://www.inberlinwohnung.de/wohnungsfinder"
+    "poll_interval_seconds": 120,  // 120s = 2mins, 300s = 5mins, 600s = 10mins, 900s = 15mins, 1800s = 30mins, 2700s = 45mins, 3600s = 1h
   },
   "filters": {
     "enabled": true,

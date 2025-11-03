@@ -22,8 +22,8 @@ class Config:
 
     def _validate(self):
         """Validates the structure and content of the settings."""
-        if 'telegram' not in self.settings or 'scraper' not in self.settings:
-            raise ValueError("settings.json is missing 'telegram' or 'scraper' sections.")
+        if 'telegram' not in self.settings or 'scrapers' not in self.settings:
+            raise ValueError("settings.json is missing 'telegram' or 'scrapers' sections.")
 
         bot_token = self.telegram.get('bot_token')
         if not bot_token or "YOUR_TELEGRAM_BOT_TOKEN_HERE" in bot_token:
@@ -38,8 +38,12 @@ class Config:
         return self.settings.get('telegram', {})
 
     @property
-    def scraper(self) -> Dict[str, Any]:
-        return self.settings.get('scraper', {})
+    def scrapers(self) -> Dict[str, Any]:
+        return self.settings.get('scrapers', {})
+
+    @property
+    def poll_interval(self) -> int:
+        return self.settings.get('poll_interval_seconds', 300)
 
     @property
     def filters(self) -> Dict[str, Any]:

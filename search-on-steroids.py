@@ -5,7 +5,7 @@ import json
 from scraper.app import App
 from scraper.config import Config
 from scraper.notifier import TelegramNotifier
-from scraper.scraper import Scraper
+from scraper.scrapers import SCRAPER_CLASSES
 from scraper.store import ListingStore
 
 
@@ -21,13 +21,27 @@ def main():
     """Initializes and runs the monitoring application."""
     try:
         config = Config.from_file('settings.json')
-        logger.info(f"Loaded scraper configuration:\n{json.dumps(config.scraper, indent=2)}")
+        logger.info(f"Loaded scraper configurations:\n{json.dumps(config.scrapers, indent=2)}")
         logger.info(f"Loaded filter configuration:\n{json.dumps(config.filters, indent=2)}")
+
+        scrapers = []
+        for name, scraper_config in config.scrapers.items():
+            if scraper_config.get("enabled", False):
+                if name in SCRAPER_CLASSES:
+                    scraper_class = SCRAPER_CLASSES[name]
+                    scrapers.append(scraper_class(name=name))
+                    logger.info(f"Enabled scraper: {name}")
+                else:
+                    logger.warning(f"Scraper '{name}' is configured but not found in SCRAPER_CLASSES.")
+
+        if not scrapers:
+            logger.fatal("No scrapers enabled. Exiting.")
+            sys.exit(1)
+
         notifier = TelegramNotifier(config.telegram)
         store = ListingStore()
-        scraper = Scraper(config.scraper)
 
-        app = App(config, scraper, store, notifier)
+        app = App(config, scrapers, store, notifier)
         app.run()
 
     except (ValueError, FileNotFoundError) as e:
