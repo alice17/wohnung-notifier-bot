@@ -7,6 +7,9 @@ from scraper.listing import Listing
 
 logger = logging.getLogger(__name__)
 
+YELLOW = "\033[93m"
+RESET = "\033[0m"
+
 
 class ListingFilter:
     """Encapsulates all logic for filtering listings."""
@@ -54,7 +57,7 @@ class ListingFilter:
 
         rules = self.filters.get("properties", {}).get("price_total", {})
         if not self._passes_numeric_filter(price_val, rules):
-            logger.info(f"FILTERED (Price {price_type}): {price_to_log}€")
+            logger.info(f"{YELLOW}FILTERED (Price {price_type}): {price_to_log}€{RESET}")
             return True
         return False
 
@@ -62,7 +65,7 @@ class ListingFilter:
         sqm_val = self._to_numeric(listing.sqm)
         rules = self.filters.get("properties", {}).get("sqm", {})
         if not self._passes_numeric_filter(sqm_val, rules):
-            logger.info(f"FILTERED (SQM): {listing.sqm}m²")
+            logger.info(f"{YELLOW}FILTERED (SQM): {listing.sqm}m²{RESET}")
             return True
         return False
 
@@ -70,7 +73,7 @@ class ListingFilter:
         rooms_val = self._to_numeric(listing.rooms)
         rules = self.filters.get("properties", {}).get("rooms", {})
         if not self._passes_numeric_filter(rooms_val, rules):
-            logger.info(f"FILTERED (Rooms): {listing.rooms}")
+            logger.info(f"{YELLOW}FILTERED (Rooms): {listing.rooms}{RESET}")
             return True
         return False
 
@@ -78,7 +81,7 @@ class ListingFilter:
         rules = self.filters.get("properties", {}).get("wbs", {})
         allowed_values = rules.get("allowed_values", [])
         if allowed_values and listing.wbs.strip().lower() not in [v.lower() for v in allowed_values]:
-            logger.info(f"FILTERED (WBS): '{listing.wbs}'")
+            logger.info(f"{YELLOW}FILTERED (WBS): '{listing.wbs}'{RESET}")
             return True
         return False
 
@@ -93,7 +96,7 @@ class ListingFilter:
             listing.borough = ", ".join(listing_boroughs)
             allowed_set = {b.lower() for b in allowed_boroughs}
             if not any(b.lower() in allowed_set for b in listing_boroughs):
-                logger.info(f"FILTERED (Borough): '{listing.borough}' not in allowed boroughs.")
+                logger.info(f"{YELLOW}FILTERED (Borough): '{listing.borough}' not in allowed boroughs.{RESET}")
                 return True
         else:
             logger.info(f"Borough: Could not determine borough for address '{listing.address}'. Sending it anyway.")
