@@ -1,3 +1,6 @@
+"""
+This module defines the InBerlinWohnenScraper class.
+"""
 import logging
 import re
 from typing import Dict, Any, Optional
@@ -6,21 +9,23 @@ import requests
 from bs4 import BeautifulSoup
 
 from scraper.listing import Listing
-from scraper.scrapers.base_scraper import BaseScraper
+from scraper.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
 
 class InBerlinWohnenScraper(BaseScraper):
     """Handles fetching and parsing of apartment listings from inberlinwohnen.de."""
-    LISTINGS_CONTAINER_SELECTOR = "div[wire\:loading\.remove]"
-    LISTING_ITEM_SELECTOR = "div[id^='apartment-']"
+    LISTINGS_CONTAINER_SELECTOR = r"div[wire\:loading\.remove]"
+    LISTING_ITEM_SELECTOR = r"div[id^='apartment-']"
 
     def __init__(self, name: str):
         super().__init__(name)
         self.url = "https://www.inberlinwohnen.de/wohnungsfinder"
 
-    def get_current_listings(self) -> Dict[str, Listing]:
+    def get_current_listings(
+        self, known_listings: Optional[Dict[str, Listing]] = None
+    ) -> Dict[str, Listing]:
         """Fetches the website and returns a dictionary of listings."""
         try:
             with requests.get(self.url, headers=self.headers, timeout=20) as response:

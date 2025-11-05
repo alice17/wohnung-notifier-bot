@@ -1,3 +1,6 @@
+"""
+Main application module for the scraper.
+"""
 import datetime
 import logging
 import json
@@ -20,7 +23,13 @@ RESET = "\033[0m"
 class App:
     """The main application class orchestrating the monitoring process."""
 
-    def __init__(self, config: Config, scrapers: List[BaseScraper], store: ListingStore, notifier: TelegramNotifier):
+    def __init__(
+        self,
+        config: Config,
+        scrapers: List[BaseScraper],
+        store: ListingStore,
+        notifier: TelegramNotifier,
+    ):
         self.config = config
         self.scrapers = scrapers
         self.store = store
@@ -54,7 +63,9 @@ class App:
 
         while True:
             if self._is_suspended_time():
-                logger.info("Service is suspended between midnight and 7 AM. Sleeping for 5 minutes.")
+                logger.info(
+                    "Service is suspended between midnight and 7 AM. Sleeping for 5 minutes."
+                )
                 time.sleep(300)
                 continue
 
@@ -83,7 +94,7 @@ class App:
     def _initialize_baseline(self):
         """Fetches the initial set of listings to establish a baseline."""
         logger.info("No known listings file found. Fetching baseline.")
-        initial_listings_by_scraper, failed_scrapers = self._get_all_current_listings()
+        initial_listings_by_scraper, _ = self._get_all_current_listings()
 
         for listings in initial_listings_by_scraper.values():
             self.known_listings.update(listings)
@@ -135,7 +146,9 @@ class App:
         """Processes listings from a single scraper, updating known listings."""
         something_changed = False
         known_listings_for_scraper = {
-            id: listing for id, listing in self.known_listings.items() if listing.source == scraper_name
+            id: listing
+            for id, listing in self.known_listings.items()
+            if listing.source == scraper_name
         }
 
         current_ids = set(current_listings.keys())

@@ -24,8 +24,12 @@ def main():
     """Initializes and runs the monitoring application."""
     try:
         config = Config.from_file('settings.json')
-        logger.info(f"Loaded scraper configurations:\n{json.dumps(config.scrapers, indent=2)}")
-        logger.info(f"Loaded filter configuration:\n{json.dumps(config.filters, indent=2)}")
+        logger.info(
+            "Loaded scraper configurations:\n%s", json.dumps(config.scrapers, indent=2)
+        )
+        logger.info(
+            "Loaded filter configuration:\n%s", json.dumps(config.filters, indent=2)
+        )
 
         scrapers = []
         for name, scraper_config in config.scrapers.items():
@@ -33,9 +37,11 @@ def main():
                 if name in SCRAPER_CLASSES:
                     scraper_class = SCRAPER_CLASSES[name]
                     scrapers.append(scraper_class(name=name))
-                    logger.info(f"Enabled scraper: {name}")
+                    logger.info("Enabled scraper: %s", name)
                 else:
-                    logger.warning(f"Scraper '{name}' is configured but not found in SCRAPER_CLASSES.")
+                    logger.warning(
+                        "Scraper '%s' is configured but not found in SCRAPER_CLASSES.", name
+                    )
 
         if not scrapers:
             logger.fatal("No scrapers enabled. Exiting.")
@@ -48,7 +54,7 @@ def main():
         app.run()
 
     except (ValueError, FileNotFoundError) as e:
-        logger.fatal(f"Application failed to start: {e}")
+        logger.fatal("Application failed to start: %s", e)
         sys.exit(1)
     except KeyboardInterrupt:
         logger.info("\nMonitoring stopped by user.")

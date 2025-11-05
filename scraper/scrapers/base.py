@@ -1,3 +1,6 @@
+"""
+This module defines the BaseScraper abstract base class.
+"""
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, List
 
@@ -11,7 +14,11 @@ class BaseScraper(ABC):
         self.name = name
         self.url: str = ""
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': (
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) '
+                'Chrome/91.0.4472.124 Safari/537.36'
+            )
         }
         self.zip_to_borough_map: Optional[Dict[str, List[str]]] = None
 
@@ -20,7 +27,9 @@ class BaseScraper(ABC):
         self.zip_to_borough_map = zip_to_borough_map
 
     @abstractmethod
-    def get_current_listings(self, known_listings: Dict[str, Listing]) -> Dict[str, Listing]:
+    def get_current_listings(
+        self, known_listings: Optional[Dict[str, Listing]] = None
+    ) -> Dict[str, Listing]:
         """Fetches the website and returns a dictionary of listings."""
         raise NotImplementedError
 

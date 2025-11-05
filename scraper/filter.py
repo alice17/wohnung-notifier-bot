@@ -1,3 +1,7 @@
+"""
+This module defines the ListingFilter class, which is responsible for filtering
+apartment listings based on user-defined criteria.
+"""
 import logging
 import re
 from typing import Optional, Dict, List
@@ -12,6 +16,7 @@ RESET = "\033[0m"
 
 
 class ListingFilter:
+    # pylint: disable=too-few-public-methods
     """Encapsulates all logic for filtering listings."""
 
     def __init__(self, config: Config, zip_to_borough_map: Optional[Dict[str, List[str]]]):

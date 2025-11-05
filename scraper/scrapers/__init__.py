@@ -1,6 +1,9 @@
-from .base_scraper import BaseScraper
-from .inberlinwohnen_scraper import InBerlinWohnenScraper
-from .immowelt_scraper import ImmoweltScraper
+"""
+This package contains all the scraper implementations.
+"""
+from .base import BaseScraper
+from .immowelt import ImmoweltScraper
+from .inberlinwohnen import InBerlinWohnenScraper
 
 # A dictionary to map scraper names to their classes
 SCRAPER_CLASSES = {

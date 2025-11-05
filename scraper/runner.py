@@ -1,20 +1,26 @@
+"""
+This module defines the ScraperRunner class, which is responsible for running scrapers.
+"""
 import logging
 from typing import List, Dict, Tuple, Set
 
 from scraper.listing import Listing
 from scraper.scrapers import BaseScraper
-from scraper.scrapers.immowelt_scraper import ImmoweltScraper
+from scraper.scrapers.immowelt import ImmoweltScraper
 
 logger = logging.getLogger(__name__)
 
 
 class ScraperRunner:
+    # pylint: disable=too-few-public-methods
     """Manages the execution of multiple scrapers and collects their results."""
 
     def __init__(self, scrapers: List[BaseScraper]):
         self.scrapers = scrapers
 
-    def run(self, known_listings: Dict[str, Listing]) -> Tuple[Dict[str, Dict[str, Listing]], Set[str]]:
+    def run(
+        self, known_listings: Dict[str, Listing]
+    ) -> Tuple[Dict[str, Dict[str, Listing]], Set[str]]:
         """
         Executes all configured scrapers and returns their findings.
 

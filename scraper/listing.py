@@ -1,3 +1,6 @@
+"""
+This module defines the Listing dataclass.
+"""
 import hashlib
 import logging
 from dataclasses import dataclass

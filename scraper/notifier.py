@@ -1,3 +1,6 @@
+"""
+This module handles sending notifications via Telegram.
+"""
 import logging
 from typing import Dict, Any, Union
 import urllib.parse
@@ -65,7 +68,10 @@ class TelegramNotifier:
         else:
             details_link = f"Link not found, ID: {escape_markdown_v2(listing.identifier)}"
 
-        google_maps_url = "https://www.google.com/maps/search/?api=1&query=" + urllib.parse.quote(listing.address)
+        google_maps_url = (
+            "https://www.google.com/maps/search/?api=1&query="
+            + urllib.parse.quote(listing.address)
+        )
         address_line = f"[{escape_markdown_v2(listing.address)}]({google_maps_url})"
 
         return (

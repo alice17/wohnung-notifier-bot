@@ -1,3 +1,6 @@
+"""
+This module defines the ListingStore class for persistence of listings.
+"""
 import json
 import logging
 import os
@@ -28,7 +31,7 @@ class ListingStore:
         if not os.path.exists(self.filepath):
             return {}
         try:
-            with open(self.filepath, 'r') as f:
+            with open(self.filepath, 'r', encoding="utf-8") as f:
                 data = json.load(f)
                 return {
                     identifier: Listing(**listing_data)
@@ -41,7 +44,7 @@ class ListingStore:
     def save(self, listings: Dict[str, Listing]):
         """Saves the current set of listing identifiers to the file."""
         try:
-            with open(self.filepath, 'w') as f:
+            with open(self.filepath, 'w', encoding="utf-8") as f:
                 json.dump(listings, f, indent=2, cls=EnhancedJSONEncoder)
         except IOError as e:
             logger.error(f"Error writing to {self.filepath}: {e}")

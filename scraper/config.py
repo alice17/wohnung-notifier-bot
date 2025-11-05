@@ -1,3 +1,6 @@
+"""
+Configuration module for the scraper.
+"""
 import json
 from typing import Dict, Any
 
@@ -13,12 +16,14 @@ class Config:
     def from_file(cls, filepath: str = 'settings.json'):
         """Loads settings from a specified JSON file."""
         try:
-            with open(filepath, 'r') as f:
+            with open(filepath, 'r', encoding='utf-8') as f:
                 return cls(json.load(f))
-        except FileNotFoundError:
-            raise FileNotFoundError(f"FATAL: {filepath} not found. Please create it.")
-        except json.JSONDecodeError:
-            raise ValueError(f"FATAL: {filepath} is not valid JSON.")
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(
+                f"FATAL: {filepath} not found. Please create it."
+            ) from exc
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"FATAL: {filepath} is not valid JSON.") from exc
 
     def _validate(self):
         """Validates the structure and content of the settings."""
@@ -35,16 +40,25 @@ class Config:
 
     @property
     def telegram(self) -> Dict[str, Any]:
+        """Returns the telegram settings."""
         return self.settings.get('telegram', {})
 
     @property
     def scrapers(self) -> Dict[str, Any]:
+        """Returns the scrapers settings."""
         return self.settings.get('scrapers', {})
 
     @property
     def poll_interval(self) -> int:
+        """Returns the poll interval in seconds."""
         return self.settings.get('poll_interval_seconds', 300)
 
     @property
     def filters(self) -> Dict[str, Any]:
+        """Returns the filters settings."""
         return self.settings.get('filters', {})
+
+    @property
+    def suspension_periods(self) -> list[dict[str, Any]]:
+        """Returns the suspension periods from settings."""
+        return self.settings.get('suspension_periods', [])
