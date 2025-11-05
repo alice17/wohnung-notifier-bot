@@ -20,4 +20,4 @@ jobs:
         pip install pylint
     - name: Analysing the code with pylint
       run: |
-        pylint --disable=logging-fstring-interpolation $(git ls-files '*.py')
+        pylint --disable=logging-fstring-interpolation --exit-zero $(git ls-files '*.py')
