@@ -63,8 +63,6 @@ class App:
             except Exception as e:
                 logger.error(f"An unexpected error occurred in the main loop: {e}")
                 self.notifier.send_message(f"⚠️ *Bot Error:* An unexpected error occurred: {e}")
-                logger.info("Waiting 60 seconds before retrying...")
-                time.sleep(60)
 
             logger.info(f"Sleeping for {self.config.poll_interval} seconds...")
             time.sleep(self.config.poll_interval)

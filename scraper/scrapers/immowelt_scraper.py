@@ -60,6 +60,7 @@ class ImmoweltScraper(BaseScraper):
                     
         except requests.exceptions.RequestException as e:
             logger.error(f"An error occurred during the request for {self.url}: {e}")
+            raise
         
         return listings_data
 

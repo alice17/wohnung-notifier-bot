@@ -28,10 +28,10 @@ class InBerlinWohnenScraper(BaseScraper):
                 return self._parse_html(response.text)
         except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching website {self.url}: {e}")
-            return {}
+            raise
         except Exception as e:
             logger.error(f"An unexpected error occurred during parsing: {e}")
-            return {}
+            raise
 
     def _parse_html(self, html_content: str) -> Dict[str, Listing]:
         """Parses the HTML content to extract listing details."""
