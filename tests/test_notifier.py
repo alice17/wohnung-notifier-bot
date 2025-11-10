@@ -2,11 +2,14 @@
 This module contains tests for the TelegramNotifier class.
 """
 import unittest
-from scraper.listing import Listing
-from scraper.notifier import TelegramNotifier, escape_markdown_v2
+from unittest.mock import MagicMock, patch
+
+from src.listing import Listing
+from src.notifier import TelegramNotifier, escape_markdown_v2
+
 
 class TestTelegramNotifier(unittest.TestCase):
-    """Tests for the TelegramNotifier class."""
+    """Test suite for the TelegramNotifier class."""
 
     def setUp(self):
         """Set up a dummy TelegramNotifier instance."""

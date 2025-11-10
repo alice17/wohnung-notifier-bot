@@ -7,7 +7,7 @@ import urllib.parse
 
 import requests
 
-from scraper.listing import Listing
+from src.listing import Listing
 
 logger = logging.getLogger(__name__)
 

@@ -4,9 +4,9 @@ This module defines the ScraperRunner class, which is responsible for running sc
 import logging
 from typing import List, Dict, Tuple, Set
 
-from scraper.listing import Listing
-from scraper.scrapers import BaseScraper
-from scraper.scrapers.immowelt import ImmoweltScraper
+from src.listing import Listing
+from src.scrapers import BaseScraper
+from src.scrapers.immowelt import ImmoweltScraper
 
 logger = logging.getLogger(__name__)
 

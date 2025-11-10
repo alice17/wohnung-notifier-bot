@@ -7,13 +7,13 @@ import json
 import time
 from typing import Set, Dict, Optional, List, Tuple
 
-from scraper.config import Config
-from scraper.filter import ListingFilter
-from scraper.listing import Listing
-from scraper.notifier import TelegramNotifier
-from scraper.runner import ScraperRunner
-from scraper.scrapers import BaseScraper
-from scraper.store import ListingStore
+from src.config import Config
+from src.filter import ListingFilter
+from src.listing import Listing
+from src.notifier import TelegramNotifier
+from src.runner import ScraperRunner
+from src.scrapers import BaseScraper
+from src.store import ListingStore
 
 logger = logging.getLogger(__name__)
 GREEN = "\033[92m"

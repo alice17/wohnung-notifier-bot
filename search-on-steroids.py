@@ -5,11 +5,11 @@ import logging
 import sys
 import json
 
-from scraper.app import App
-from scraper.config import Config
-from scraper.notifier import TelegramNotifier
-from scraper.scrapers import SCRAPER_CLASSES
-from scraper.store import ListingStore
+from src.app import App
+from src.config import Config
+from src.notifier import TelegramNotifier
+from src.scrapers import SCRAPER_CLASSES
+from src.store import ListingStore
 
 
 logging.basicConfig(

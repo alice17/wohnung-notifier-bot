@@ -4,7 +4,7 @@ This module defines the BaseScraper abstract base class.
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, List
 
-from scraper.listing import Listing
+from src.listing import Listing
 
 
 class BaseScraper(ABC):

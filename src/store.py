@@ -7,7 +7,7 @@ import os
 from typing import Dict
 from dataclasses import asdict, is_dataclass
 
-from scraper.listing import Listing
+from src.listing import Listing
 
 logger = logging.getLogger(__name__)
 

@@ -6,8 +6,8 @@ import logging
 import re
 from typing import Optional, Dict, List
 
-from scraper.config import Config
-from scraper.listing import Listing
+from src.config import Config
+from src.listing import Listing
 
 logger = logging.getLogger(__name__)
 

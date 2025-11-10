@@ -8,8 +8,8 @@ from typing import Dict, Any, Optional
 import requests
 from bs4 import BeautifulSoup
 
-from scraper.listing import Listing
-from scraper.scrapers.base import BaseScraper
+from src.listing import Listing
+from src.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
