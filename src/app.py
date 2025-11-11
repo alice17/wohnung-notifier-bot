@@ -64,9 +64,10 @@ class App:
         while True:
             if self._is_suspended_time():
                 logger.info(
-                    "Service is suspended between midnight and 7 AM. Sleeping for 5 minutes."
+                    f"Service is suspended between {self.config.suspension_start_hour}:00 "
+                    f"and {self.config.suspension_end_hour}:00. Sleeping for 30 minutes."
                 )
-                time.sleep(300)
+                time.sleep(1800)
                 continue
 
             try:
@@ -189,7 +190,14 @@ class App:
             return self.listing_filter.is_filtered(listing)
         return False
 
-    @staticmethod
-    def _is_suspended_time() -> bool:
-        """Checks if the current time is within the suspended period (00:00 - 07:00)."""
-        return 0 <= datetime.datetime.now().hour < 7
+    def _is_suspended_time(self) -> bool:
+        """
+        Checks if the current time is within the configured suspension period.
+
+        Returns:
+            True if the current hour is within the suspension period, False otherwise.
+        """
+        current_hour = datetime.datetime.now().hour
+        start_hour = self.config.suspension_start_hour
+        end_hour = self.config.suspension_end_hour
+        return start_hour <= current_hour < end_hour

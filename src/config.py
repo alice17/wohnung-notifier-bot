@@ -62,3 +62,15 @@ class Config:
     def suspension_periods(self) -> list[dict[str, Any]]:
         """Returns the suspension periods from settings."""
         return self.settings.get('suspension_periods', [])
+
+    @property
+    def suspension_start_hour(self) -> int:
+        """Returns the hour when suspension period starts (0-23)."""
+        scraper_settings = self.settings.get('scraper', {})
+        return scraper_settings.get('suspension_start_hour', 0)
+
+    @property
+    def suspension_end_hour(self) -> int:
+        """Returns the hour when suspension period ends (0-23)."""
+        scraper_settings = self.settings.get('scraper', {})
+        return scraper_settings.get('suspension_end_hour', 7)
