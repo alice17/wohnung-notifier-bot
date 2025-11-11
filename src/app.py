@@ -10,7 +10,7 @@ from typing import Set, Dict, Optional, List, Tuple
 from src.config import Config
 from src.filter import ListingFilter
 from src.listing import Listing
-from src.notifier import TelegramNotifier
+from src.notifier import TelegramNotifier, escape_markdown_v2
 from src.runner import ScraperRunner
 from src.scrapers import BaseScraper
 from src.store import ListingStore
@@ -73,8 +73,15 @@ class App:
             try:
                 self._check_for_updates()
             except Exception as e:
-                logger.error(f"An unexpected error occurred in the main loop: {e}")
-                self.notifier.send_message(f"⚠️ *Bot Error:* An unexpected error occurred: {e}")
+                logger.exception(f"An unexpected error occurred in the main loop: {e}")
+                try:
+                    # Escape error message for MarkdownV2 and limit length
+                    safe_error = escape_markdown_v2(str(e)[:200])
+                    self.notifier.send_message(
+                        f"⚠️ *Bot Error:* An unexpected error occurred: {safe_error}"
+                    )
+                except Exception as notify_err:
+                    logger.error(f"Failed to send error notification to Telegram: {notify_err}")
 
             logger.info(f"Sleeping for {self.config.poll_interval} seconds...")
             time.sleep(self.config.poll_interval)
