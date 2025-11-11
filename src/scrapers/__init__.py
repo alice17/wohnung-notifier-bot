@@ -5,10 +5,12 @@ from .base import BaseScraper
 from .immowelt import ImmoweltScraper
 from .inberlinwohnen import InBerlinWohnenScraper
 from .kleinanzeigen import KleinanzeigenScraper
+from .ohnemakler import OhneMaklerScraper
 
 # A dictionary to map scraper names to their classes
 SCRAPER_CLASSES = {
     "inberlinwohnen": InBerlinWohnenScraper,
     "immowelt": ImmoweltScraper,
     "kleinanzeigen": KleinanzeigenScraper,
+    "ohnemakler": OhneMaklerScraper,
 }

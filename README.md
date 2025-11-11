@@ -1,12 +1,12 @@
 # 🏠 Berlin Apartment Notifier
 
-A Python script that monitors multiple German real estate websites (including `inberlinwohnen.de` and `immowelt.de`) for new apartment listings, filters them based on your criteria, and sends instant notifications via Telegram.
+A Python script that monitors multiple German real estate websites (including `inberlinwohnen.de`, `immowelt.de`, `kleinanzeigen.de`, and `ohne-makler.net`) for new apartment listings, filters them based on your criteria, and sends instant notifications via Telegram.
 
 -----
 
 ## ✨ Key Features
 
--   **Multi-Website Support:** Natively scrapes listings from `inberlinwohnen.de` and `immowelt.de`.
+-   **Multi-Website Support:** Natively scrapes listings from `inberlinwohnen.de`, `immowelt.de`, `kleinanzeigen.de`, and `ohne-makler.net`.
 -   **Intelligent Scraping:** Instead of watching the whole page, the script parses individual apartment listings, tracking them by their unique URL.
 -   **Configurable Filters:** Only get notified about apartments that fit your needs. Filter by price, size (SQM), number of rooms, WBS requirement, and Berlin boroughs.
 -   **Telegram Notifications:** Get instant alerts delivered to your phone, giving you a head-start on your application.
@@ -123,7 +123,7 @@ A `Containerfile` is included for easy containerized deployment.
 ## ⚖️ Disclaimer
 
 -   **Polling Frequency:** Be respectful. Do not set the `poll_interval_seconds` too low. A 120-300 second (2-5 minute) interval is effective and won't spam the websites' servers.
--   **Website Changes:** This script relies on the websites' HTML structure. If `inberlinwohnen.de` or `immowelt.de` changes its layout, the corresponding scraper may break and will need to be updated.
+-   **Website Changes:** This script relies on the websites' HTML structure. If any of the supported websites changes its layout, the corresponding scraper may break and will need to be updated.
 
 -----
 
@@ -131,4 +131,4 @@ A `Containerfile` is included for easy containerized deployment.
 
 -   **Add a Test Suite:** Introduce `pytest` to write unit and integration tests for better reliability.
 -   **Improve Error Handling:** Make the scraper more resilient to temporary network issues or minor HTML changes.
--   **Add more scrapers:** Ohne-Makler can be an example
+-   **Add more scrapers:** Expand to support additional real estate platforms.

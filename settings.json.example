@@ -5,6 +5,22 @@
   },
   "scraper": {
     "poll_interval_seconds": 120,  // 120s = 2mins, 300s = 5mins, 600s = 10mins, 900s = 15mins, 1800s = 30mins, 2700s = 45mins, 3600s = 1h
+    "suspension_start_hour": 0,  // Hour to start suspension (0-23, default: 0 = midnight)
+    "suspension_end_hour": 7     // Hour to end suspension (0-23, default: 7 = 7 AM)
+  },
+  "scrapers": {
+    "inberlinwohnen": {
+      "enabled": true
+    },
+    "immowelt": {
+      "enabled": true
+    },
+    "kleinanzeigen": {
+      "enabled": true
+    },
+    "ohnemakler": {
+      "enabled": true
+    }
   },
   "filters": {
     "enabled": true,
@@ -27,7 +43,7 @@
           "N/A"
         ]
       },
-      # check data/plz_bezirk.json for the complete list
+      // check data/plz_bezirk.json for the complete list
       "boroughs": {
         "allowed_values": [
           "Mitte",
