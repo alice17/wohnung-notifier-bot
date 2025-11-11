@@ -82,66 +82,188 @@ class ImmoweltScraper(BaseScraper):
         return listings_data
 
     def _parse_listing(self, listing_soup: BeautifulSoup) -> Optional[Listing]:
-        # pylint: disable=too-many-locals
-        """Parses a single listing from its BeautifulSoup object."""
-        link_element = listing_soup.find(
-            'a', attrs={'data-testid': 'card-mfe-covering-link-testid'}
-        )
-        if not (link_element and link_element.get('href')):
-            logger.warning("Skipping a listing because no URL could be determined.")
-            return None
-
-        relative_url = link_element.get('href')
-        url = (
-            "https://www.immowelt.de" + relative_url
-            if relative_url and relative_url.startswith('/')
-            else relative_url
-        )
+        """
+        Parses a single listing from its BeautifulSoup object.
+        
+        Args:
+            listing_soup: BeautifulSoup object containing listing HTML
+            
+        Returns:
+            Listing object or None if parsing fails
+        """
+        url = self._extract_listing_url(listing_soup)
         if not url:
             return None
-
-        price_element = listing_soup.find('div', attrs={'data-testid': 'cardmfe-price-testid'})
-        price = price_element.text.strip().split(' ')[0] if price_element else 'N/A'
-
-        address_element = listing_soup.find(
-            'div', attrs={'data-testid': 'cardmfe-description-box-address'}
-        )
-        address = address_element.text.strip() if address_element else 'N/A'
-
-        borough = "N/A"
-        zip_code_match = re.search(r'\b(\d{5})\b', address)
-        if zip_code_match:
-            zip_code = zip_code_match.group(1)
-            borough = self._get_borough_from_zip(zip_code)
-
-        rooms, size = '1', 'N/A'  # Default rooms to '1'
-        key_facts_container = listing_soup.find(
-            'div', attrs={'data-testid': 'cardmfe-keyfacts-testid'}
-        )
-        if key_facts_container:
-            key_facts_elements = key_facts_container.find_all('div', class_='css-9u48bm')
-            key_facts = [
-                fact.text.strip() for fact in key_facts_elements if fact.text.strip() != '·'
-            ]
-
-            zimmer_fact = next((fact for fact in key_facts if 'Zimmer' in fact), None)
-            if zimmer_fact:
-                rooms = zimmer_fact.split(' ')[0]
-
-            size_fact = next((fact for fact in key_facts if 'm²' in fact), None)
-            if size_fact:
-                size = size_fact
-
+        
+        price_cold = self._extract_price(listing_soup)
+        address, borough = self._extract_address_and_borough(listing_soup)
+        rooms, sqm = self._extract_key_facts(listing_soup)
+        
         return Listing(
             source=self.name,
             address=address,
             borough=borough,
-            sqm=self._clean_text(size),
-            price_cold=self._clean_text(price),
-            rooms=self._clean_text(rooms),
+            sqm=sqm,
+            price_cold=price_cold,
+            rooms=rooms,
             link=url,
             identifier=url,
         )
+
+    def _extract_listing_url(self, listing_soup: BeautifulSoup) -> Optional[str]:
+        """
+        Extracts and validates the listing URL.
+        
+        Args:
+            listing_soup: BeautifulSoup object containing listing HTML
+            
+        Returns:
+            Full URL string or None if not found
+        """
+        link_element = listing_soup.find(
+            'a', attrs={'data-testid': 'card-mfe-covering-link-testid'}
+        )
+        
+        if not (link_element and link_element.get('href')):
+            logger.warning("Skipping a listing because no URL could be determined.")
+            return None
+        
+        relative_url = link_element.get('href')
+        if relative_url and relative_url.startswith('/'):
+            return "https://www.immowelt.de" + relative_url
+        
+        return relative_url
+
+    def _extract_price(self, listing_soup: BeautifulSoup) -> str:
+        """
+        Extracts and cleans the cold rent price.
+        
+        Args:
+            listing_soup: BeautifulSoup object containing listing HTML
+            
+        Returns:
+            Cleaned price string or 'N/A' if not found
+        """
+        price_element = listing_soup.find(
+            'div', attrs={'data-testid': 'cardmfe-price-testid'}
+        )
+        
+        if not price_element:
+            return 'N/A'
+        
+        price_text = price_element.text.strip().split(' ')[0]
+        return self._clean_text(price_text)
+
+    def _extract_address_and_borough(
+        self, listing_soup: BeautifulSoup
+    ) -> tuple[str, str]:
+        """
+        Extracts address and derives borough from ZIP code.
+        
+        Args:
+            listing_soup: BeautifulSoup object containing listing HTML
+            
+        Returns:
+            Tuple of (address, borough), both strings
+        """
+        address_element = listing_soup.find(
+            'div', attrs={'data-testid': 'cardmfe-description-box-address'}
+        )
+        address = address_element.text.strip() if address_element else 'N/A'
+        
+        borough = self._extract_borough_from_address(address)
+        
+        return address, borough
+
+    def _extract_borough_from_address(self, address: str) -> str:
+        """
+        Extracts borough from address by finding and looking up ZIP code.
+        
+        Args:
+            address: Full address string
+            
+        Returns:
+            Borough name or 'N/A' if not found
+        """
+        zip_code_match = re.search(r'\b(\d{5})\b', address)
+        if not zip_code_match:
+            return "N/A"
+        
+        zip_code = zip_code_match.group(1)
+        return self._get_borough_from_zip(zip_code)
+
+    def _extract_key_facts(self, listing_soup: BeautifulSoup) -> tuple[str, str]:
+        """
+        Extracts room count and square meters from key facts section.
+        
+        Args:
+            listing_soup: BeautifulSoup object containing listing HTML
+            
+        Returns:
+            Tuple of (rooms, sqm), both as cleaned strings
+        """
+        key_facts_container = listing_soup.find(
+            'div', attrs={'data-testid': 'cardmfe-keyfacts-testid'}
+        )
+        
+        if not key_facts_container:
+            return '1', 'N/A'  # Default values
+        
+        key_facts = self._parse_key_facts_container(key_facts_container)
+        rooms = self._extract_rooms_from_facts(key_facts)
+        sqm = self._extract_sqm_from_facts(key_facts)
+        
+        return rooms, sqm
+
+    def _parse_key_facts_container(self, container: BeautifulSoup) -> list[str]:
+        """
+        Parses key facts container into list of fact strings.
+        
+        Args:
+            container: BeautifulSoup element containing key facts
+            
+        Returns:
+            List of cleaned fact strings
+        """
+        key_facts_elements = container.find_all('div', class_='css-9u48bm')
+        return [
+            fact.text.strip()
+            for fact in key_facts_elements
+            if fact.text.strip() != '·'
+        ]
+
+    def _extract_rooms_from_facts(self, key_facts: list[str]) -> str:
+        """
+        Extracts room count from key facts list.
+        
+        Args:
+            key_facts: List of fact strings
+            
+        Returns:
+            Cleaned room count string or '1' as default
+        """
+        zimmer_fact = next((fact for fact in key_facts if 'Zimmer' in fact), None)
+        if not zimmer_fact:
+            return '1'
+        
+        room_count = zimmer_fact.split(' ')[0]
+        return self._clean_text(room_count)
+
+    def _extract_sqm_from_facts(self, key_facts: list[str]) -> str:
+        """
+        Extracts square meters from key facts list.
+        
+        Args:
+            key_facts: List of fact strings
+            
+        Returns:
+            Cleaned square meter string or 'N/A' if not found
+        """
+        size_fact = next((fact for fact in key_facts if 'm²' in fact), None)
+        if not size_fact:
+            return 'N/A'
+        
+        return self._clean_text(size_fact)
 
     def _scrape_listing_details(self, listing: Listing, session: requests.Session):
         """Scrapes additional details from the listing's detail page."""
