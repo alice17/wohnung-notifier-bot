@@ -126,7 +126,6 @@ class OhneMaklerScraper(BaseScraper):
         title_h4 = listing_soup.find('h4')
         if title_h4:
             title = self._clean_text(title_h4.get_text(strip=True))
-            logger.debug(f"Found listing: {title}")
 
         # Extract address and borough
         address_container = listing_soup.find('div', class_='flex items-center text-slate-800')
