@@ -65,9 +65,9 @@ class App:
             if self._is_suspended_time():
                 logger.info(
                     f"Service is suspended between {self.config.suspension_start_hour}:00 "
-                    f"and {self.config.suspension_end_hour}:00. Sleeping for 30 minutes."
+                    f"and {self.config.suspension_end_hour}:00. Sleeping for 10 minutes."
                 )
-                time.sleep(1800)
+                time.sleep(600)
                 continue
 
             try:
