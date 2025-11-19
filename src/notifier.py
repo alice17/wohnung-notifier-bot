@@ -2,8 +2,8 @@
 This module handles sending notifications via Telegram.
 """
 import logging
-from typing import Dict, Any, Union
 import urllib.parse
+from typing import Dict, Any, Union
 
 import requests
 
@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 
 RED = "\033[91m"
 RESET = "\033[0m"
+
+TELEGRAM_API_URL_TEMPLATE = "https://api.telegram.org/bot{token}/sendMessage"
+REQUEST_TIMEOUT = 10
 
 
 def escape_markdown_v2(text: Union[str, int, float]) -> str:
@@ -36,13 +39,24 @@ def escape_markdown_v2(text: Union[str, int, float]) -> str:
 class TelegramNotifier:
     """Handles sending notifications via Telegram."""
 
-    def __init__(self, telegram_config: Dict[str, Any]):
+    def __init__(self, telegram_config: Dict[str, Any]) -> None:
+        """
+        Initialize the TelegramNotifier with configuration.
+
+        Args:
+            telegram_config: Dictionary containing 'bot_token' and 'chat_id'.
+        """
         self.bot_token = telegram_config['bot_token']
         self.chat_id = telegram_config['chat_id']
-        self.url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+        self.url = TELEGRAM_API_URL_TEMPLATE.format(token=self.bot_token)
 
-    def send_message(self, message: str):
-        """Sends a message to the configured Telegram chat."""
+    def send_message(self, message: str) -> None:
+        """
+        Sends a message to the configured Telegram chat.
+
+        Args:
+            message: The message text to send.
+        """
         payload = {
             "chat_id": self.chat_id,
             "text": message,
@@ -50,7 +64,7 @@ class TelegramNotifier:
             "disable_web_page_preview": True
         }
         try:
-            response = requests.post(self.url, data=payload, timeout=10)
+            response = requests.post(self.url, data=payload, timeout=REQUEST_TIMEOUT)
             response.raise_for_status()  # Raise an exception for bad status codes
             logger.info(f"Telegram response: {response.json().get('ok', False)}")
         except requests.exceptions.HTTPError as http_err:
@@ -59,11 +73,17 @@ class TelegramNotifier:
             logger.exception(f"{RED}Error sending Telegram message{RESET}")
 
     def format_listing_message(self, listing: Listing) -> str:
-        """Formats the details of a listing into a message string."""
+        """
+        Formats the details of a listing into a message string.
+
+        Args:
+            listing: The listing object to format.
+
+        Returns:
+            A formatted string suitable for Telegram MarkdownV2.
+        """
         if listing.link != 'N/A':
             # Format the link using MarkdownV2 syntax to make it clickable
-            # and escape parentheses as required by the Telegram API.
-            # escaped_link = listing.link.replace('(', '\\(').replace(')', '\\)')
             details_link = f"Details: {escape_markdown_v2(listing.link)}"
         else:
             details_link = f"Link not found, ID: {escape_markdown_v2(listing.identifier)}"
@@ -78,7 +98,7 @@ class TelegramNotifier:
             f"🏠 *New Listing*\n\n"
             f"📍 *Address:* {address_line}\n"
             f"🏙️ *Borough:* {escape_markdown_v2(listing.borough)}\n"
-            f"📐 *SQM:* {escape_markdown_v2(listing.sqm)} m²\n"
+            f"📐 *Size:* {escape_markdown_v2(listing.sqm)} m²\n"
             f"💶 *Cold Rent:* {escape_markdown_v2(listing.price_cold)} €\n"
             f"💰 *Total Rent:* {escape_markdown_v2(listing.price_total)} €\n"
             f"🚪 *Rooms:* {escape_markdown_v2(listing.rooms)}\n\n"
