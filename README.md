@@ -84,7 +84,7 @@ You must create a `settings.json` file from the `settings.json.example`. This is
 3.  Activate your virtual environment: `source venv/bin/activate`
 4.  Run the script:
     ```bash
-    python3 search-on-steroids.py
+    python3 main.py
     ```
 
 The script will start, and you'll see log output in your terminal.
