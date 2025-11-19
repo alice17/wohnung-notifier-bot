@@ -52,7 +52,7 @@ class TestTelegramNotifier(unittest.TestCase):
             "📍 *Address:* [Goltzstrasse 47, 13587 Berlin]"
             "(https://www.google.com/maps/search/?api=1&query=Goltzstrasse%2047%2C%2013587%20Berlin)\n"
             f"🏙️ *Borough:* {escape_markdown_v2(listing.borough)}\n"
-            f"📐 *SQM:* {escape_markdown_v2(listing.sqm)} m²\n"
+            f"📐 *Size:* {escape_markdown_v2(listing.sqm)} m²\n"
             f"💶 *Cold Rent:* {escape_markdown_v2(listing.price_cold)} €\n"
             f"💰 *Total Rent:* {escape_markdown_v2(listing.price_total)} €\n"
             f"🚪 *Rooms:* {escape_markdown_v2(listing.rooms)}\n\n"
