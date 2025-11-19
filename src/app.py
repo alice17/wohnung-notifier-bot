@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 GREEN = "\033[92m"
 RESET = "\033[0m"
 
+PLZ_BEZIRK_FILE = 'data/plz_bezirk.json'
+SUSPENSION_SLEEP_TIME = 600  # 10 minutes
+RATE_LIMIT_SLEEP_TIME = 1
+
 
 class App:
     """The main application class orchestrating the monitoring process."""
@@ -30,6 +34,15 @@ class App:
         store: ListingStore,
         notifier: TelegramNotifier,
     ):
+        """
+        Initialize the App with configuration and components.
+
+        Args:
+            config: Configuration object with application settings.
+            scrapers: List of scraper instances to run.
+            store: Store instance for persisting listings.
+            notifier: Notifier instance for sending alerts.
+        """
         self.config = config
         self.scrapers = scrapers
         self.store = store
@@ -39,7 +52,7 @@ class App:
         self.zip_to_borough_map: Optional[Dict[str, List[str]]] = None
         self.listing_filter: Optional[ListingFilter] = None
 
-    def setup(self):
+    def setup(self) -> None:
         """Initializes the application state by loading data and setting up filters."""
         logger.info(f"Setting up the application with {len(self.scrapers)} sources...")
         self.known_listings = self.store.load()
@@ -56,50 +69,79 @@ class App:
 
         logger.info("Application setup complete.")
 
-    def run(self):
+    def run(self) -> None:
         """Starts the main monitoring loop."""
         self.setup()
         logger.info("Monitoring started.")
 
         while True:
-            if self._is_suspended_time():
-                logger.info(
-                    f"Service is suspended between {self.config.suspension_start_hour}:00 "
-                    f"and {self.config.suspension_end_hour}:00. Sleeping for 10 minutes."
-                )
-                time.sleep(600)
+            if self._handle_suspension():
                 continue
 
             try:
                 self._check_for_updates()
             except Exception as e:
-                logger.exception(f"An unexpected error occurred in the main loop: {e}")
-                try:
-                    # Escape error message for MarkdownV2 and limit length
-                    safe_error = escape_markdown_v2(str(e)[:200])
-                    self.notifier.send_message(
-                        f"⚠️ *Bot Error:* An unexpected error occurred: {safe_error}"
-                    )
-                except Exception as notify_err:
-                    logger.error(f"Failed to send error notification to Telegram: {notify_err}")
+                self._handle_unexpected_error(e)
 
             logger.info(f"Sleeping for {self.config.poll_interval} seconds...")
             time.sleep(self.config.poll_interval)
 
-    def _load_zip_to_borough_map(self):
-        """Loads the zipcode to borough mapping from the JSON file."""
+    def _handle_suspension(self) -> bool:
+        """
+        Checks and handles suspension time logic.
+
+        Returns:
+            True if the service is suspended and slept, False otherwise.
+        """
+        if self._is_suspended_time():
+            logger.info(
+                f"Service is suspended between {self.config.suspension_start_hour}:00 "
+                f"and {self.config.suspension_end_hour}:00. Sleeping for {SUSPENSION_SLEEP_TIME} seconds."
+            )
+            time.sleep(SUSPENSION_SLEEP_TIME)
+            return True
+        return False
+
+    def _handle_unexpected_error(self, e: Exception) -> None:
+        """
+        Handles unexpected errors during the main loop execution.
+
+        Args:
+            e: The exception that occurred.
+        """
+        logger.exception(f"An unexpected error occurred in the main loop: {e}")
         try:
-            with open('data/plz_bezirk.json', 'r', encoding='utf-8') as f:
+            # Escape error message for MarkdownV2 and limit length
+            safe_error = escape_markdown_v2(str(e)[:200])
+            self.notifier.send_message(
+                f"⚠️ *Bot Error:* An unexpected error occurred: {safe_error}"
+            )
+        except Exception as notify_err:
+            logger.error(f"Failed to send error notification to Telegram: {notify_err}")
+
+    def _load_zip_to_borough_map(self) -> None:
+        """
+        Loads the zipcode to borough mapping from the JSON file.
+        """
+        try:
+            with open(PLZ_BEZIRK_FILE, 'r', encoding='utf-8') as f:
                 self.zip_to_borough_map = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.error(f"Failed to load or parse plz_bezirk.json: {e}")
+            logger.error(f"Failed to load or parse {PLZ_BEZIRK_FILE}: {e}")
             self.zip_to_borough_map = {}
 
     def _get_all_current_listings(self) -> Tuple[Dict[str, Dict[str, Listing]], Set[str]]:
-        """Fetches listings from all configured scrapers using the ScraperRunner."""
+        """
+        Fetches listings from all configured scrapers using the ScraperRunner.
+
+        Returns:
+            A tuple containing:
+            - A dictionary mapping scraper names to their current listings.
+            - A set of names of scrapers that failed.
+        """
         return self.scraper_runner.run(self.known_listings)
 
-    def _initialize_baseline(self):
+    def _initialize_baseline(self) -> None:
         """Fetches the initial set of listings to establish a baseline."""
         logger.info("No known listings file found. Fetching baseline.")
         initial_listings_by_scraper, _ = self._get_all_current_listings()
@@ -116,7 +158,7 @@ class App:
         else:
             logger.warning("Failed to get initial listings. Will retry.")
 
-    def _check_for_updates(self):
+    def _check_for_updates(self) -> None:
         """Fetches current listings and compares them with the known ones."""
         logger.info("Checking for new listings...")
         current_listings_by_scraper, failed_scrapers = self._get_all_current_listings()
@@ -138,7 +180,19 @@ class App:
         if failed_scrapers:
             logger.warning(f"Scrapers {', '.join(failed_scrapers)} failed. Their listings will be preserved.")
 
-        if total_changes:
+        self._save_changes_if_needed(updated_known_listings, total_changes)
+
+    def _save_changes_if_needed(
+        self, updated_known_listings: Dict[str, Listing], changes_detected: bool
+    ) -> None:
+        """
+        Saves the updated listings to the store if changes were detected.
+
+        Args:
+            updated_known_listings: The new state of known listings.
+            changes_detected: Whether any changes were detected.
+        """
+        if changes_detected:
             self.known_listings = updated_known_listings
             self.store.save(self.known_listings)
             logger.info("Changes detected and saved.")
@@ -151,7 +205,17 @@ class App:
         current_listings: Dict[str, Listing],
         updated_known_listings: Dict[str, Listing],
     ) -> bool:
-        """Processes listings from a single scraper, updating known listings."""
+        """
+        Processes listings from a single scraper, updating known listings.
+
+        Args:
+            scraper_name: Name of the scraper being processed.
+            current_listings: Dictionary of current listings found by the scraper.
+            updated_known_listings: Dictionary of known listings to be updated (in-place).
+
+        Returns:
+            True if changes were detected (additions or removals), False otherwise.
+        """
         something_changed = False
         known_listings_for_scraper = {
             id: listing
@@ -181,18 +245,31 @@ class App:
 
         return something_changed
 
-    def _process_new_listings(self, new_listings: Dict[str, Listing]):
-        """Processes and notifies about new listings."""
+    def _process_new_listings(self, new_listings: Dict[str, Listing]) -> None:
+        """
+        Processes and notifies about new listings.
+
+        Args:
+            new_listings: Dictionary of new listings to process.
+        """
         logger.info(f"{GREEN}Found {len(new_listings)} new listing(s)!{RESET}")
         for listing in new_listings.values():
             logger.info(f"Processing new listing: {listing}")
             if not self._is_listing_filtered(listing):
                 message = self.notifier.format_listing_message(listing)
                 self.notifier.send_message(message)
-                time.sleep(1)  # Avoid rate limiting
+                time.sleep(RATE_LIMIT_SLEEP_TIME)  # Avoid rate limiting
 
     def _is_listing_filtered(self, listing: Listing) -> bool:
-        """Checks if a listing should be filtered out based on criteria."""
+        """
+        Checks if a listing should be filtered out based on criteria.
+
+        Args:
+            listing: The listing to check.
+
+        Returns:
+            True if the listing should be filtered out, False otherwise.
+        """
         if self.listing_filter:
             return self.listing_filter.is_filtered(listing)
         return False
