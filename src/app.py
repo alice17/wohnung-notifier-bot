@@ -14,6 +14,7 @@ from src.notifier import TelegramNotifier, escape_markdown_v2
 from src.runner import ScraperRunner
 from src.scrapers import BaseScraper
 from src.store import ListingStore
+from src.appliers.wbm import apply_wbm
 
 logger = logging.getLogger(__name__)
 GREEN = "\033[92m"
@@ -258,6 +259,11 @@ class App:
             if not self._is_listing_filtered(listing):
                 message = self.notifier.format_listing_message(listing)
                 self.notifier.send_message(message)
+                
+                # Check for WBM auto-apply
+                if listing.link.startswith("https://www.wbm.de/") or listing.link.startswith("https://https://www.wbm.de/"):
+                    apply_wbm(listing.link, self.config.wbm_config, self.notifier)
+                    
                 time.sleep(RATE_LIMIT_SLEEP_TIME)  # Avoid rate limiting
 
     def _is_listing_filtered(self, listing: Listing) -> bool:

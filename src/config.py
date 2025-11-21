@@ -74,3 +74,8 @@ class Config:
         """Returns the hour when suspension period ends (0-23)."""
         scraper_settings = self.settings.get('scraper', {})
         return scraper_settings.get('suspension_end_hour', 7)
+
+    @property
+    def wbm_config(self) -> Dict[str, Any]:
+        """Returns the WBM applicant configuration."""
+        return self.settings.get('wbm_applicant', {})
