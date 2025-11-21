@@ -112,11 +112,16 @@ A `Containerfile` is included for easy containerized deployment.
 2.  **Run the container:**
     Make sure your `settings.json` is complete before running.
     ```bash
-    podman run -d --name wohnung-bot -v ./known_listings_by_url.json:/app/known_listings_by_url.json:z -v ./settings.json:/app/settings.json:z wohnung-scraper
+    podman run -d --name wohnung-bot \
+      -v ./known_listings_by_url.json:/app/known_listings_by_url.json:z \
+      -v ./settings.json:/app/settings.json:z \
+      wohnung-scraper
     ```
     -   `-d`: Run in detached mode (in the background).
     -   The first `-v` mounts the known listings file into the container so it persists across restarts.
-    -   The second `-v` mounts your settings file.
+    -   The second `-v` mounts your `settings.json` file (required - the container expects this file to be mounted as a volume).
+    
+    **Note:** `settings.json` must be mounted as a volume and is not included in the container image. This allows you to update your configuration without rebuilding the image.
 
 -----
 
