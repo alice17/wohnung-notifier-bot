@@ -10,7 +10,8 @@ A Python script that monitors multiple German real estate websites (including `i
 -   **Intelligent Scraping:** Instead of watching the whole page, the script parses individual apartment listings, tracking them by their unique URL.
 -   **Configurable Filters:** Only get notified about apartments that fit your needs. Filter by price, size (SQM), number of rooms, WBS requirement, and Berlin boroughs.
 -   **Telegram Notifications:** Get instant alerts delivered to your phone, giving you a head-start on your application.
--   **Resilient:** Stores known listings in a local file (`known_listings_by_url.json`) to pick up where it left off after a restart.
+-   **Resilient:** Stores known listings in a SQLite database (`listings.db`) for reliable persistence across restarts.
+-   **Efficient Storage:** Database-backed storage with proper indexing for fast lookups and better performance with large datasets.
 -   **Containerized:** Includes a `Containerfile` for easy deployment with Docker or Podman.
 
 -----
@@ -91,7 +92,8 @@ The script will start, and you'll see log output in your terminal.
 
 ```
 INFO - Setting up the application with 2 sources...
-INFO - No known listings file found. Fetching baseline.
+INFO - Database initialized successfully
+INFO - Loaded 0 listings from database
 INFO - Scraper 'inberlinwohnen' successfully returned 10 listings.
 INFO - Scraper 'immowelt' successfully returned 25 listings.
 INFO - Initial baseline set with 35 listings.
@@ -99,6 +101,28 @@ INFO - Sleeping for 120 seconds...
 ```
 
 -----
+
+## 📦 Database Storage
+
+The application uses SQLite to store known listings, providing better performance and reliability compared to JSON files.
+
+### Overview
+
+Starting from the latest version, the scraper uses a SQLite database (`listings.db`) as its primary storage backend. This modern storage solution offers significant advantages over the previous JSON-based approach, including indexed queries for faster lookups, transaction safety for data integrity, and efficient batch operations. The database automatically tracks metadata such as when each listing was first seen and last updated, making it easier to analyze listing patterns and manage the dataset. The database schema is designed specifically for apartment listings with proper indexing on frequently-queried columns, ensuring optimal performance even with thousands of listings. For detailed information about the database structure, operations, and advanced usage, refer to [DATABASE.md](DATABASE.md).
+
+### Database Location
+
+-   Default location: `listings.db` in the project root directory
+-   The database is created automatically on first run
+-   No manual setup required
+
+### Database Features
+
+-   **Automatic Schema Creation:** The database schema is created automatically on startup
+-   **Indexed Queries:** Fast lookups using indexed identifier and source columns
+-   **Transaction Safety:** All operations use database transactions for data integrity
+-   **Backup Friendly:** Single file database makes backups simple
+
 
 ## 🐳 Running with Docker / Podman
 
@@ -113,12 +137,12 @@ A `Containerfile` is included for easy containerized deployment.
     Make sure your `settings.json` is complete before running.
     ```bash
     podman run -d --name wohnung-bot \
-      -v ./known_listings_by_url.json:/app/known_listings_by_url.json:z \
+      -v ./listings.db:/app/listings.db:z \
       -v ./settings.json:/app/settings.json:z \
       wohnung-scraper
     ```
     -   `-d`: Run in detached mode (in the background).
-    -   The first `-v` mounts the known listings file into the container so it persists across restarts.
+    -   The first `-v` mounts the database file into the container so it persists across restarts.
     -   The second `-v` mounts your `settings.json` file (required - the container expects this file to be mounted as a volume).
     
     **Note:** `settings.json` must be mounted as a volume and is not included in the container image. This allows you to update your configuration without rebuilding the image.
@@ -134,6 +158,7 @@ A `Containerfile` is included for easy containerized deployment.
 
 ## 📝 TODO
 
--   **Add a Test Suite:** Introduce `pytest` to write unit and integration tests for better reliability.
 -   **Improve Error Handling:** Make the scraper more resilient to temporary network issues or minor HTML changes.
 -   **Add more scrapers:** Expand to support additional real estate platforms.
+-   **Add Advanced Filtering:** Implement more complex filtering logic (e.g., proximity to transit, floor level preferences).
+-   **Web Dashboard:** Create a simple web interface to view and manage listings.
