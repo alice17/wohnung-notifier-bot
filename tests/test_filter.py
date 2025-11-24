@@ -16,6 +16,47 @@ class TestListingFilter(unittest.TestCase):
         """Sets up common test fixtures."""
         self.maxDiff = None
 
+    def test_to_numeric_english_format(self):
+        """Test _to_numeric with English format numbers (period as decimal)."""
+        # This is the format Deutsche Wohnen API uses
+        self.assertEqual(ListingFilter._to_numeric('555.02'), 555.02)
+        self.assertEqual(ListingFilter._to_numeric('1234.56'), 1234.56)
+        self.assertEqual(ListingFilter._to_numeric('850.0'), 850.0)
+        self.assertEqual(ListingFilter._to_numeric('1,234.56'), 1234.56)
+
+    def test_to_numeric_german_format(self):
+        """Test _to_numeric with German format numbers (comma as decimal)."""
+        # This is the format most German scrapers use
+        self.assertEqual(ListingFilter._to_numeric('555,02'), 555.02)
+        self.assertEqual(ListingFilter._to_numeric('1.234,56'), 1234.56)
+        self.assertEqual(ListingFilter._to_numeric('850,0'), 850.0)
+
+    def test_to_numeric_simple_numbers(self):
+        """Test _to_numeric with simple numbers without separators."""
+        self.assertEqual(ListingFilter._to_numeric('850'), 850.0)
+        self.assertEqual(ListingFilter._to_numeric('1234'), 1234.0)
+
+    def test_to_numeric_invalid_values(self):
+        """Test _to_numeric with invalid or special values."""
+        self.assertIsNone(ListingFilter._to_numeric('N/A'))
+        self.assertIsNone(ListingFilter._to_numeric(''))
+        self.assertIsNone(ListingFilter._to_numeric('abc'))
+        self.assertIsNone(ListingFilter._to_numeric(None))
+
+    def test_to_numeric_regression_deutsche_wohnen_bug(self):
+        """
+        Regression test for Deutsche Wohnen price parsing bug.
+        
+        Bug: "555.02" was incorrectly parsed as 55502.0 instead of 555.02
+        This caused listings to be incorrectly filtered out.
+        """
+        # The bug case: English format should parse correctly
+        result = ListingFilter._to_numeric('555.02')
+        self.assertEqual(result, 555.02)
+        
+        # Verify it passes a typical filter
+        self.assertLess(result, 1200, "555.02 should be less than max 1200")
+
     def _create_config(self, filters_config: dict) -> Config:
         """
         Creates a Config object with specified filters.
@@ -626,12 +667,21 @@ class TestListingFilter(unittest.TestCase):
         result = ListingFilter._to_numeric("100,50")
         self.assertEqual(result, 100.5)
 
-    def test_to_numeric_valid_float_with_dot_german_format(self):
-        """Tests converting German format with dot as thousands separator."""
+    def test_to_numeric_valid_float_with_dot_ambiguous(self):
+        """
+        Tests converting ambiguous format "100.50".
+        
+        This could be either:
+        - English: 100.50 (period as decimal) = 100.5
+        - German: 100.50 (period as thousands, but missing decimal part)
+        
+        The updated logic treats it as English format since only a period is present.
+        In practice, German format would be written as "100,50" for 100.5
+        or "100.500,00" for 100500.00.
+        """
         result = ListingFilter._to_numeric("100.50")
-        # In German format, dot is thousands separator, comma is decimal
-        # So "100.50" becomes 10050.0
-        self.assertEqual(result, 10050.0)
+        # Treated as English format: period is decimal separator
+        self.assertEqual(result, 100.5)
 
     def test_to_numeric_german_format_thousands(self):
         """Tests converting German number format with thousands separator."""
