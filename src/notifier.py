@@ -84,7 +84,8 @@ class TelegramNotifier:
         """
         if listing.link != 'N/A':
             # Format the link using MarkdownV2 syntax to make it clickable
-            details_link = f"Details: {escape_markdown_v2(listing.link)}"
+            escaped_link = escape_markdown_v2(listing.link)
+            details_link = f"{escaped_link}"
         else:
             details_link = f"Link not found, ID: {escape_markdown_v2(listing.identifier)}"
 
@@ -92,7 +93,8 @@ class TelegramNotifier:
             "https://www.google.com/maps/search/?api=1&query="
             + urllib.parse.quote(listing.address)
         )
-        address_line = f"[{escape_markdown_v2(listing.address)}]({google_maps_url})"
+        escaped_maps_url = escape_markdown_v2(google_maps_url)
+        address_line = f"[{escape_markdown_v2(listing.address)}]({escaped_maps_url})"
 
         return (
             f"🏠 *New Listing*\n\n"
@@ -102,5 +104,5 @@ class TelegramNotifier:
             f"💶 *Cold Rent:* {escape_markdown_v2(listing.price_cold)} €\n"
             f"💰 *Total Rent:* {escape_markdown_v2(listing.price_total)} €\n"
             f"🚪 *Rooms:* {escape_markdown_v2(listing.rooms)}\n\n"
-            f"🔗 {details_link}"
+            f"🔗 Details: {details_link}"
         )

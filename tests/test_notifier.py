@@ -50,14 +50,14 @@ class TestTelegramNotifier(unittest.TestCase):
         expected_message = (
             "🏠 *New Listing*\n\n"
             "📍 *Address:* [Goltzstrasse 47, 13587 Berlin]"
-            "(https://www.google.com/maps/search/?api=1&query=Goltzstrasse%2047%2C%2013587%20Berlin)\n"
+            "(https://www\\.google\\.com/maps/search/?api\\=1&query\\=Goltzstrasse%2047%2C%2013587%20Berlin)\n"
             f"🏙️ *Borough:* {escape_markdown_v2(listing.borough)}\n"
             f"📐 *Size:* {escape_markdown_v2(listing.sqm)} m²\n"
             f"💶 *Cold Rent:* {escape_markdown_v2(listing.price_cold)} €\n"
             f"💰 *Total Rent:* {escape_markdown_v2(listing.price_total)} €\n"
             f"🚪 *Rooms:* {escape_markdown_v2(listing.rooms)}\n\n"
-            r"🔗 Details: https://www\.wbm\.de/wohnungen\-berlin/angebote/details/"
-            r"?tx\_openimmo\_immobilie\[immobilie\]\=60\-7903/24/366"
+            "🔗 Details: https://www\\.wbm\\.de/wohnungen\\-berlin/angebote/details/"
+            "?tx\\_openimmo\\_immobilie\\[immobilie\\]\\=60\\-7903/24/366"
         )
 
         self.assertEqual(self.notifier.format_listing_message(listing), expected_message)
