@@ -312,34 +312,40 @@ class ImmoweltScraper(BaseScraper):
         """
         Extracts room count from key facts list.
         
+        Normalizes to dot decimal separator (same format as prices).
+        
         Args:
             key_facts: List of fact strings
             
         Returns:
-            Cleaned room count string or '1' as default
+            Cleaned room count string with dot decimal separator or '1' as default
         """
         zimmer_fact = next((fact for fact in key_facts if 'Zimmer' in fact), None)
         if not zimmer_fact:
             return '1'
         
         room_count = zimmer_fact.split(' ')[0]
-        return self._clean_text(room_count)
+        return self._normalize_rooms_format(self._clean_text(room_count))
 
     def _extract_sqm_from_facts(self, key_facts: list[str]) -> str:
         """
         Extracts square meters from key facts list.
         
+        Normalizes German number format (comma as decimal separator)
+        to standard format (period as decimal separator).
+        
         Args:
             key_facts: List of fact strings
             
         Returns:
-            Cleaned square meter string or 'N/A' if not found
+            Cleaned and normalized square meter string or 'N/A' if not found
         """
         size_fact = next((fact for fact in key_facts if 'm²' in fact), None)
         if not size_fact:
             return 'N/A'
         
-        return self._clean_text(size_fact)
+        cleaned_sqm = self._clean_text(size_fact)
+        return self._normalize_german_number(cleaned_sqm)
 
     def _scrape_listing_details(self, listing: Listing, session: requests.Session):
         """Scrapes additional details from the listing's detail page."""

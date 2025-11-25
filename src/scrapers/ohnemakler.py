@@ -204,14 +204,16 @@ class OhneMaklerScraper(BaseScraper):
         if rooms_div:
             rooms_span = rooms_div.find('span', class_=re.compile(r'.*text-slate-700.*font-medium.*'))
             if rooms_span:
-                details['rooms'] = self._clean_text(rooms_span.get_text(strip=True))
+                rooms_text = self._clean_text(rooms_span.get_text(strip=True))
+                details['rooms'] = self._normalize_rooms_format(rooms_text)
 
         # Extract square meters - look for div with title="Wohnfläche"
         sqm_div = listing_soup.find('div', title='Wohnfläche')
         if sqm_div:
             sqm_span = sqm_div.find('span', class_=re.compile(r'.*text-slate-700.*font-medium.*'))
             if sqm_span:
-                details['sqm'] = self._clean_text(sqm_span.get_text(strip=True))
+                sqm_text = self._clean_text(sqm_span.get_text(strip=True))
+                details['sqm'] = self._normalize_german_number(sqm_text)
 
         # Fetch detail page to get accurate pricing (Warmmiete)
         price_cold, price_total = self._fetch_detail_page_pricing(details['link'])

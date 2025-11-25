@@ -233,13 +233,13 @@ class InBerlinWohnenScraper(BaseScraper):
             details['address'] = address_text
             self._extract_borough_from_address(address_text, details)
         elif "Wohnfläche:" in field_label:
-            details['sqm'] = dd_text
+            details['sqm'] = self._normalize_german_number(dd_text)
         elif "Kaltmiete:" in field_label:
             details['price_cold'] = self._normalize_german_number(dd_text)
         elif "Gesamtmiete:" in field_label:
             details['price_total'] = self._normalize_german_number(dd_text)
         elif "Zimmeranzahl:" in field_label:
-            details['rooms'] = dd_text
+            details['rooms'] = self._normalize_rooms_format(dd_text)
         elif "WBS:" in field_label:
             details['wbs'] = dd_text if dd_text != 'N/A' else 'Unknown'
 

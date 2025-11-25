@@ -332,15 +332,18 @@ class DeutscheWohnenScraper(BaseScraper):
         """
         Extracts and formats the number of rooms.
         
+        The API returns rooms with dot decimal separator (e.g., "2.5"),
+        which is the standard format (same as prices).
+        
         Args:
             listing_data: Dictionary containing listing data
             
         Returns:
-            Formatted room count string or '1'
+            Formatted room count string with dot decimal separator or '1'
         """
         rooms = listing_data.get('anzahl_zimmer')
         if rooms:
-            return str(rooms).strip()
+            return self._normalize_rooms_format(str(rooms).strip())
         return '1'
 
     def _build_listing_url(self, listing_data: dict) -> str:

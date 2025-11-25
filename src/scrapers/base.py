@@ -77,5 +77,30 @@ class BaseScraper(ABC):
         
         return value_str
 
+    @staticmethod
+    def _normalize_rooms_format(value_str: str) -> str:
+        """
+        Normalizes room count format to use dot as decimal separator.
+        
+        Converts comma decimal separator to dot for consistent display
+        (same format as prices).
+        
+        Examples:
+            '2,5' -> '2.5' (comma to dot)
+            '2.5' -> '2.5' (already correct)
+            '3' -> '3' (whole number unchanged)
+            
+        Args:
+            value_str: Room count string (may use dot or comma as decimal separator)
+            
+        Returns:
+            Room count string with dot as decimal separator
+        """
+        if not value_str or value_str == 'N/A':
+            return value_str
+        
+        # Replace comma with dot for decimal separator (same as prices)
+        return value_str.replace(',', '.')
+
     def __str__(self):
         return f"Scraper({self.name})"
