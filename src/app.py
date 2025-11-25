@@ -208,43 +208,37 @@ class App:
     ) -> bool:
         """
         Processes listings from a single scraper, updating known listings.
+        
+        Note: Scrapers are optimized for live updates and use early termination,
+        returning only NEW listings (not all current listings). Therefore, we
+        only add new listings and do NOT remove listings based on scraper results.
 
         Args:
             scraper_name: Name of the scraper being processed.
-            current_listings: Dictionary of current listings found by the scraper.
+            current_listings: Dictionary of NEW listings found by the scraper.
             updated_known_listings: Dictionary of known listings to be updated (in-place).
 
         Returns:
-            True if changes were detected (additions or removals), False otherwise.
+            True if new listings were added, False otherwise.
         """
-        something_changed = False
-        known_listings_for_scraper = {
-            id: listing
-            for id, listing in self.known_listings.items()
-            if listing.source == scraper_name
+        if not current_listings:
+            return False
+
+        # Double-check: filter out any listings we already know about
+        # (scrapers should already do this, but this is a safety check)
+        new_listings = {
+            listing_id: listing
+            for listing_id, listing in current_listings.items()
+            if listing_id not in self.known_listings
         }
 
-        current_ids = set(current_listings.keys())
-        known_ids = set(known_listings_for_scraper.keys())
+        if not new_listings:
+            return False
 
-        # Process new listings
-        new_listing_ids = current_ids - known_ids
-        if new_listing_ids:
-            something_changed = True
-            new_listings = {new_id: current_listings[new_id] for new_id in new_listing_ids}
-            self._process_new_listings(new_listings)
-            updated_known_listings.update(new_listings)
+        self._process_new_listings(new_listings)
+        updated_known_listings.update(new_listings)
 
-        # Process removed listings
-        removed_ids = known_ids - current_ids
-        if removed_ids:
-            something_changed = True
-            logger.info(f"{len(removed_ids)} listing(s) were removed from {scraper_name}.")
-            for removed_id in removed_ids:
-                if removed_id in updated_known_listings:
-                    del updated_known_listings[removed_id]
-
-        return something_changed
+        return True
 
     def _process_new_listings(self, new_listings: Dict[str, Listing]) -> None:
         """

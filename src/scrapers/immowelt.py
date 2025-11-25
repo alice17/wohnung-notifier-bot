@@ -1,10 +1,20 @@
 """
-This module defines the ImmoweltScraper class.
+Immowelt Scraper (Optimized for Live Updates).
+
+This module defines the ImmoweltScraper class, optimized for detecting new
+apartment listings quickly rather than exhaustive scraping.
+
+Optimization Strategy:
+---------------------
+1. Only processes first page (sorted newest first via order=DateDesc)
+2. Uses early termination when encountering known listings
+3. Skips detail page fetches for known listings
+4. Minimal parsing overhead for already-seen apartments
 """
 import logging
 import re
 import time
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 
 import requests
 from bs4 import BeautifulSoup
@@ -16,9 +26,20 @@ logger = logging.getLogger(__name__)
 
 
 class ImmoweltScraper(BaseScraper):
-    """Handles fetching and parsing of apartment listings from immowelt.de."""
+    """
+    Handles fetching and parsing of apartment listings from immowelt.de.
+    
+    Optimized for live updates: only processes first page (newest first)
+    and implements early termination when known listings are encountered.
+    """
 
     def __init__(self, name: str):
+        """
+        Initializes the Immowelt scraper.
+        
+        Args:
+            name: Display name for this scraper instance.
+        """
         super().__init__(name)
         self.url = (
             "https://www.immowelt.de/classified-search"
@@ -44,42 +65,93 @@ class ImmoweltScraper(BaseScraper):
     def get_current_listings(
         self, known_listings: Optional[Dict[str, Listing]] = None
     ) -> Dict[str, Listing]:
-        """Fetches the website and returns a dictionary of listings."""
+        """
+        Fetches the website and returns a dictionary of new listings.
+        
+        Optimized for live updates: uses early termination when a known
+        listing is encountered. Since listings are sorted newest first,
+        hitting a known listing means all remaining listings are also known.
+        
+        Args:
+            known_listings: Previously seen listings for early termination.
+            
+        Returns:
+            Dictionary mapping identifiers to Listing objects (new listings only).
+            
+        Raises:
+            requests.exceptions.RequestException: If the HTTP request fails.
+        """
+        if not known_listings:
+            known_listings = {}
+        
+        known_ids: Set[str] = set(known_listings.keys())
         listings_data: Dict[str, Listing] = {}
         session = requests.Session()
         session.headers.update(self.headers)
 
         try:
-            # First hit the base URL to "establish" our session and get cookies
             session.get("https://www.immowelt.de/", timeout=10)
-
-            # Now, make the actual request to the search page
             response = session.get(self.url, timeout=10)
-            response.raise_for_status()  # Raise an exception for bad status codes
+            response.raise_for_status()
 
-            logger.info("Successfully fetched the webpage.")
             soup = BeautifulSoup(response.text, 'html.parser')
-            listings = soup.find_all('div', attrs={'data-testid': lambda v: v and v.startswith('classified-card-mfe-')})
-            logger.info(f"Found {len(listings)} listings on the page.")
+            listing_elements = soup.find_all(
+                'div', 
+                attrs={'data-testid': lambda v: v and v.startswith('classified-card-mfe-')}
+            )
+            logger.debug(f"Found {len(listing_elements)} listings on page.")
 
-            for listing_soup in listings:
+            new_count = 0
+            for listing_soup in listing_elements:
+                # Quick ID extraction before full parsing
+                identifier = self._extract_identifier_fast(listing_soup)
+                
+                if identifier and identifier in known_ids:
+                    logger.debug(
+                        f"Hit known listing '{identifier}', stopping (newest-first order)"
+                    )
+                    break
+                
+                # Full parsing only for new listings
                 listing = self._parse_listing(listing_soup)
                 if listing and listing.identifier:
-                    if listing.identifier in known_listings:
-                        logger.debug(f"Skipping detail fetch for known listing: {listing.identifier}")
-                        existing_listing = known_listings[listing.identifier]
-                        listing.price_total = existing_listing.price_total
-                    else:
-                        self._scrape_listing_details(listing, session)
-                        time.sleep(1)  # Be nice to the server
-
+                    self._scrape_listing_details(listing, session)
+                    time.sleep(0.5)  # Brief delay between detail fetches
                     listings_data[listing.identifier] = listing
+                    new_count += 1
+
+            if new_count > 0:
+                logger.info(f"Found {new_count} new listing(s) on immowelt.de")
+            else:
+                logger.debug("No new listings found on immowelt.de")
 
         except requests.exceptions.RequestException as e:
             logger.error(f"An error occurred during the request for {self.url}: {e}")
             raise
 
         return listings_data
+
+    def _extract_identifier_fast(self, listing_soup: BeautifulSoup) -> Optional[str]:
+        """
+        Quickly extracts the listing identifier without full parsing.
+        
+        This enables early termination check before expensive full parsing.
+        
+        Args:
+            listing_soup: BeautifulSoup object for a single listing.
+            
+        Returns:
+            The listing identifier (detail URL) or None if not found.
+        """
+        link_element = listing_soup.find(
+            'a', attrs={'data-testid': 'card-mfe-covering-link-testid'}
+        )
+        if link_element and link_element.get('href'):
+            relative_url = link_element.get('href')
+            if relative_url and relative_url.startswith('/'):
+                return "https://www.immowelt.de" + relative_url
+            return relative_url
+        return None
 
     def _parse_listing(self, listing_soup: BeautifulSoup) -> Optional[Listing]:
         """

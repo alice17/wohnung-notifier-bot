@@ -1,36 +1,30 @@
 """
-This module defines the DeutscheWohnenScraper class.
+Deutsche Wohnen Scraper (Optimized for Live Updates).
 
-Deutsche Wohnen Scraper
-======================
-
-This scraper fetches apartment listings from deutsche-wohnen.com using their
-internal API (wohnraumkarte.de), which provides fast and reliable access to
-listing data.
+This module defines the DeutscheWohnenScraper class, optimized for detecting
+new apartment listings quickly rather than exhaustive scraping.
 
 Features:
 ---------
-- Fetches all available Berlin apartment listings
-- Extracts: address, borough, rooms, size, cold rent, and listing URL
+- Fetches listings sorted by date (newest first)
+- Uses early termination when encountering known listings
+- Limits fetch to first batch only (live update mode)
 - Uses efficient API-based approach (no HTML parsing required)
-- Supports pagination for large result sets
+
+Optimization Strategy:
+---------------------
+1. Only fetches first batch (50 listings, sorted newest first)
+2. Uses early termination when encountering known listings
+3. API approach is already efficient - no detail page fetches needed
 
 Limitations:
 -----------
 - Warm rent (price_total) is NOT available from the API
   - The detail API requires user session cookies
-  - Fetching detail pages for all listings would be slow and unreliable
   - Therefore, price_total remains 'N/A' for all listings
-- If warm rent is critical for filtering, consider using other scrapers
-
-Technical Details:
------------------
-The scraper uses the wohnraumkarte.de API which Deutsche Wohnen uses to
-dynamically load their listings. This API returns comprehensive listing
-data in JSON format, making it ideal for scraping.
 """
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 
 import requests
 
@@ -39,13 +33,16 @@ from src.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
+# Number of listings to fetch per request (optimized for live updates)
+LIVE_UPDATE_BATCH_SIZE = 50
+
 
 class DeutscheWohnenScraper(BaseScraper):
     """
     Handles fetching and parsing of apartment listings from deutsche-wohnen.com.
     
-    This scraper uses the Wohnraumkarte API that Deutsche Wohnen uses
-    to dynamically load their apartment listings.
+    Optimized for live updates: only fetches first batch (newest first)
+    and implements early termination when known listings are encountered.
     """
 
     def __init__(self, name: str):
@@ -53,7 +50,7 @@ class DeutscheWohnenScraper(BaseScraper):
         Initializes the Deutsche Wohnen scraper.
         
         Args:
-            name: Display name for this scraper instance
+            name: Display name for this scraper instance.
         """
         super().__init__(name)
         self.api_url = "https://www.wohnraumkarte.de/api/getImmoList"
@@ -71,42 +68,54 @@ class DeutscheWohnenScraper(BaseScraper):
         self, known_listings: Optional[Dict[str, Listing]] = None
     ) -> Dict[str, Listing]:
         """
-        Fetches apartment listings from the API.
+        Fetches apartment listings from the API (optimized for live updates).
         
-        Note: Warm rent (price_total) is not available from the API
-        and would require fetching individual detail pages with session
-        cookies, which would significantly slow down the scraper.
-        Therefore, price_total remains 'N/A' for all listings.
+        Only fetches the first batch of listings sorted by date descending.
+        Implements early termination when a known listing is encountered,
+        since all subsequent listings would also be known.
         
         Args:
-            known_listings: Dictionary of previously known listings (unused)
+            known_listings: Previously seen listings for early termination.
             
         Returns:
-            Dictionary mapping listing identifiers to Listing objects
+            Dictionary mapping identifiers to Listing objects (new listings only).
+            
+        Raises:
+            requests.exceptions.RequestException: If the HTTP request fails.
         """
+        known_ids: Set[str] = set(known_listings.keys()) if known_listings else set()
         listings_data: Dict[str, Listing] = {}
         session = requests.Session()
         session.headers.update(self.headers)
 
         try:
-            total_listings = self._fetch_total_count(session)
-            logger.info(f"Found {total_listings} total listings available.")
+            # Fetch only first batch for live updates (sorted newest first)
+            batch_listings = self._fetch_listings_batch(
+                session, limit=LIVE_UPDATE_BATCH_SIZE, offset=0
+            )
+            logger.debug(f"Fetched {len(batch_listings)} listings from API.")
 
-            offset = 0
-            limit = 100  # Fetch in batches of 100
-
-            while offset < total_listings:
-                batch_listings = self._fetch_listings_batch(session, limit, offset)
+            new_count = 0
+            for listing_data in batch_listings:
+                # Quick ID extraction before full parsing
+                identifier = self._extract_identifier_fast(listing_data)
                 
-                for listing_data in batch_listings:
-                    listing = self._parse_listing(listing_data)
-                    if listing and listing.identifier:
-                        listings_data[listing.identifier] = listing
+                if identifier and identifier in known_ids:
+                    logger.debug(
+                        f"Hit known listing '{identifier}', stopping (newest-first order)"
+                    )
+                    break
+                
+                # Full parsing only for new listings
+                listing = self._parse_listing(listing_data)
+                if listing and listing.identifier:
+                    listings_data[listing.identifier] = listing
+                    new_count += 1
 
-                offset += limit
-                logger.info(
-                    f"Fetched {len(listings_data)}/{total_listings} listings..."
-                )
+            if new_count > 0:
+                logger.info(f"Found {new_count} new listing(s) on deutsche-wohnen.com")
+            else:
+                logger.debug("No new listings found on deutsche-wohnen.com")
 
         except requests.exceptions.RequestException as e:
             logger.error(
@@ -115,6 +124,24 @@ class DeutscheWohnenScraper(BaseScraper):
             raise
 
         return listings_data
+
+    def _extract_identifier_fast(self, listing_data: dict) -> Optional[str]:
+        """
+        Quickly extracts the listing identifier without full parsing.
+        
+        This enables early termination check before expensive full parsing.
+        
+        Args:
+            listing_data: Dictionary containing listing data from API.
+            
+        Returns:
+            The listing identifier (detail URL) or None if not found.
+        """
+        slug = listing_data.get('slug', '')
+        wrk_id = listing_data.get('wrk_id', '')
+        if slug and wrk_id:
+            return f"{self.base_url}/mieten/mietangebote/{slug}-{wrk_id}"
+        return None
 
     def _fetch_total_count(self, session: requests.Session) -> int:
         """

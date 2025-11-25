@@ -1,9 +1,18 @@
 """
-This module defines the KleinanzeigenScraper class.
+Kleinanzeigen Scraper (Optimized for Live Updates).
+
+This module defines the KleinanzeigenScraper class, optimized for detecting
+new apartment listings quickly rather than exhaustive scraping.
+
+Optimization Strategy:
+---------------------
+1. Only processes first page (sorted newest first via sortierung:neuste)
+2. Uses early termination when encountering known listings
+3. Minimal parsing overhead for already-seen apartments
 """
 import logging
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 
 import requests
 from bs4 import BeautifulSoup
@@ -15,9 +24,20 @@ logger = logging.getLogger(__name__)
 
 
 class KleinanzeigenScraper(BaseScraper):
-    """Handles fetching and parsing of apartment listings from kleinanzeigen.de."""
+    """
+    Handles fetching and parsing of apartment listings from kleinanzeigen.de.
+    
+    Optimized for live updates: only processes first page (newest first)
+    and implements early termination when known listings are encountered.
+    """
 
     def __init__(self, name: str):
+        """
+        Initializes the Kleinanzeigen scraper.
+        
+        Args:
+            name: Display name for this scraper instance.
+        """
         super().__init__(name)
         self.url = "https://www.kleinanzeigen.de/s-haus-mieten/berlin/sortierung:neuste/c205l3331r10"
         self.headers.update(
@@ -36,10 +56,24 @@ class KleinanzeigenScraper(BaseScraper):
     def get_current_listings(
         self, known_listings: Optional[Dict[str, Listing]] = None
     ) -> Dict[str, Listing]:
-        """Fetches the website and returns a dictionary of listings."""
-        if not known_listings:
-            known_listings = {}
-
+        """
+        Fetches the website and returns a dictionary of new listings.
+        
+        Optimized for live updates: uses early termination when a known
+        listing is encountered. Since listings are sorted newest first
+        (sortierung:neuste), hitting a known listing means all remaining
+        listings are also known.
+        
+        Args:
+            known_listings: Previously seen listings for early termination.
+            
+        Returns:
+            Dictionary mapping identifiers to Listing objects (new listings only).
+            
+        Raises:
+            requests.exceptions.RequestException: If the HTTP request fails.
+        """
+        known_ids: Set[str] = set(known_listings.keys()) if known_listings else set()
         listings_data: Dict[str, Listing] = {}
         session = requests.Session()
         session.headers.update(self.headers)
@@ -48,26 +82,59 @@ class KleinanzeigenScraper(BaseScraper):
             response = session.get(self.url, timeout=10)
             response.raise_for_status()
 
-            logger.info("Successfully fetched the webpage.")
             soup = BeautifulSoup(response.text, 'html.parser')
-            # The selectors are based on the provided JS code and might be outdated.
             all_listing_elements = soup.select('#srchrslt-adtable .ad-listitem')
-            logger.info(f"Found {len(all_listing_elements)} listing elements on the page.")
             
             # Filter out empty listing elements (ad spacers, placeholders, etc.)
             listings = [li for li in all_listing_elements if li.select_one('.aditem')]
-            logger.info(f"Found {len(listings)} valid listings (filtered out {len(all_listing_elements) - len(listings)} empty elements).")
+            logger.debug(f"Found {len(listings)} valid listings on page.")
 
+            new_count = 0
             for listing_soup in listings:
+                # Quick ID extraction before full parsing
+                identifier = self._extract_identifier_fast(listing_soup)
+                
+                if identifier and identifier in known_ids:
+                    logger.debug(
+                        f"Hit known listing '{identifier}', stopping (newest-first order)"
+                    )
+                    break
+                
+                # Full parsing only for new listings
                 listing = self._parse_listing(listing_soup)
                 if listing and listing.identifier:
                     listings_data[listing.identifier] = listing
+                    new_count += 1
+
+            if new_count > 0:
+                logger.info(f"Found {new_count} new listing(s) on kleinanzeigen.de")
+            else:
+                logger.debug("No new listings found on kleinanzeigen.de")
 
         except requests.exceptions.RequestException as e:
             logger.error(f"An error occurred during the request for {self.url}: {e}")
             raise
 
         return listings_data
+
+    def _extract_identifier_fast(self, listing_soup: BeautifulSoup) -> Optional[str]:
+        """
+        Quickly extracts the listing identifier without full parsing.
+        
+        This enables early termination check before expensive full parsing.
+        
+        Args:
+            listing_soup: BeautifulSoup object for a single listing.
+            
+        Returns:
+            The listing identifier (ad ID) or None if not found.
+        """
+        aditem = listing_soup.select_one('.aditem')
+        if aditem:
+            ad_id = aditem.get('data-adid')
+            if ad_id:
+                return str(ad_id)
+        return None
 
     def _parse_listing(self, listing_soup: BeautifulSoup) -> Optional[Listing]:
         """
