@@ -398,3 +398,38 @@ class DatabaseManager:
             logger.error(f"Failed to clear listings: {e}")
             return False
 
+    def delete_old_listings(self, max_age_days: int = 2) -> int:
+        """
+        Deletes listings older than the specified number of days.
+        
+        Uses the updated_at timestamp to determine listing age.
+        
+        Args:
+            max_age_days: Maximum age in days before a listing is deleted.
+                          Defaults to 2 days.
+            
+        Returns:
+            Number of listings deleted.
+        """
+        query = """
+        DELETE FROM listings 
+        WHERE updated_at < datetime('now', ?)
+        """
+        
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, (f'-{max_age_days} days',))
+                deleted_count = cursor.rowcount
+                conn.commit()
+                
+                if deleted_count > 0:
+                    logger.info(
+                        f"Cleaned up {deleted_count} listings older than "
+                        f"{max_age_days} days"
+                    )
+                return deleted_count
+        except sqlite3.Error as e:
+            logger.error(f"Failed to delete old listings: {e}")
+            return 0
+

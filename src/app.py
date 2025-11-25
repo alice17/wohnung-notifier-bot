@@ -162,6 +162,13 @@ class App:
     def _check_for_updates(self) -> None:
         """Fetches current listings and compares them with the known ones."""
         logger.info("Checking for new listings...")
+        
+        # Clean up old listings (older than 2 days)
+        deleted_count = self.store.cleanup_old_listings(max_age_days=2)
+        if deleted_count > 0:
+            # Remove deleted listings from in-memory cache
+            self.known_listings = self.store.load()
+        
         current_listings_by_scraper, failed_scrapers = self._get_all_current_listings()
 
         if not any(current_listings_by_scraper.values()) and self.known_listings:
