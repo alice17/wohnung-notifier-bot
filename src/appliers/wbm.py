@@ -8,9 +8,54 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
-from src.notifier import TelegramNotifier
+from src.notifier import TelegramNotifier, escape_markdown_v2
 
 logger = logging.getLogger(__name__)
+
+
+def _format_applicant_data_for_log(applicant_data: Dict[str, Any]) -> str:
+    """
+    Formats applicant data for console logging.
+
+    Args:
+        applicant_data: Dictionary containing the applicant information.
+
+    Returns:
+        A formatted string for logging.
+    """
+    lines = ["Application Data:"]
+    for key, value in applicant_data.items():
+        lines.append(f"  {key}: {value}")
+    return "\n".join(lines)
+
+
+def _format_applicant_data_for_telegram(
+    listing_url: str,
+    applicant_data: Dict[str, Any]
+) -> str:
+    """
+    Formats applicant data for Telegram notification with MarkdownV2.
+
+    Args:
+        listing_url: The URL of the listing applied to.
+        applicant_data: Dictionary containing the applicant information.
+
+    Returns:
+        A formatted string for Telegram MarkdownV2.
+    """
+    escaped_url = escape_markdown_v2(listing_url)
+    lines = [
+        "✅ *Automatically applied to WBM listing*",
+        "",
+        f"🔗 [Listing]({escaped_url})",
+        "",
+        "📋 *Application Data:*"
+    ]
+    for key, value in applicant_data.items():
+        escaped_key = escape_markdown_v2(key)
+        escaped_value = escape_markdown_v2(value if value else "N/A")
+        lines.append(f"  • *{escaped_key}:* {escaped_value}")
+    return "\n".join(lines)
 
 
 def apply_wbm(listing_url: str, wbm_config: Dict[str, Any], notifier: TelegramNotifier) -> None:
@@ -73,6 +118,22 @@ def apply_wbm(listing_url: str, wbm_config: Dict[str, Any], notifier: TelegramNo
             'telefon': wbm_config.get('telefon', '')
         }
 
+        # Prepare applicant data for logging (human-readable keys)
+        applicant_data = {
+            'Anrede': wbm_config.get('anrede', 'Frau'),
+            'Name': wbm_config.get('name'),
+            'Vorname': wbm_config.get('vorname'),
+            'Strasse': wbm_config.get('strasse', ''),
+            'PLZ': wbm_config.get('plz', ''),
+            'Ort': wbm_config.get('ort', ''),
+            'E-Mail': wbm_config.get('email'),
+            'Telefon': wbm_config.get('telefon', ''),
+            'WBS vorhanden': 'Ja' if str(wbm_config.get('wbs', 'nein')).lower() in ['ja', 'yes', 'true', '1'] else 'Nein'
+        }
+
+        # Log applicant data to console
+        logger.info(_format_applicant_data_for_log(applicant_data))
+
         for field, value in fields_to_fill.items():
             field_name = get_field_name(field)
             if field_name and value:
@@ -115,14 +176,20 @@ def apply_wbm(listing_url: str, wbm_config: Dict[str, Any], notifier: TelegramNo
         post_resp.raise_for_status()
         
         # Check success (heuristic)
-        if "Vielen Dank" in post_resp.text or "versendet" in post_resp.text or "success" in post_resp.url \
-            or "vielen-dank" in post_resp.url:
-                logger.info(f"Successfully applied to {listing_url}")
-                notifier.send_message(f"✅ Automatically applied to WBM listing: {listing_url}")
+        success_indicators = [
+            "Vielen Dank" in post_resp.text,
+            "versendet" in post_resp.text,
+            "success" in post_resp.url,
+            "vielen-dank" in post_resp.url
+        ]
+        if any(success_indicators):
+            logger.info(f"Successfully applied to {listing_url}")
+            telegram_message = _format_applicant_data_for_telegram(listing_url, applicant_data)
+            notifier.send_message(telegram_message)
         else:
-                logger.warning(f"Application might have failed for {listing_url}. Response might indicate error.")
-                logger.warning(f"Status Code: {post_resp.status_code}")
-                logger.warning(f"Response Text: {post_resp.text[:1000]}...")  # Log first 1000 chars
+            logger.warning(f"Application might have failed for {listing_url}. Response might indicate error.")
+            logger.warning(f"Status Code: {post_resp.status_code}")
+            logger.warning(f"Response Text: {post_resp.text[:1000]}...")
                 
     except Exception as e:
         logger.error(f"Failed to apply to WBM listing {listing_url}: {e}")
