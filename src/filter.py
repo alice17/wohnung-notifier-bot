@@ -127,14 +127,18 @@ class ListingFilter:
     @staticmethod
     def _to_numeric(value_str: str) -> Optional[float]:
         """
-        Converts a string to a numeric value, handling both German and English formats.
+        Converts a string to a numeric value.
         
-        German format: 1.234,56 (period for thousands, comma for decimal)
-        English format: 1,234.56 (comma for thousands, period for decimal)
-        Simple: 555.02 or 555,02
+        Expects standard format (period as decimal separator, no thousands separators)
+        since all scrapers normalize their numbers before passing to the filter.
+        
+        Examples:
+            '1234.56' -> 1234.56
+            '850' -> 850.0
+            '679.45' -> 679.45
         
         Args:
-            value_str: String representation of a number
+            value_str: String representation of a number in standard format
             
         Returns:
             Float value or None if conversion fails
@@ -143,22 +147,6 @@ class ListingFilter:
             return None
         
         try:
-            # Remove whitespace
-            value_str = value_str.strip()
-            
-            # Determine format by checking positions of comma and period
-            last_comma = value_str.rfind(',')
-            last_period = value_str.rfind('.')
-            
-            if last_comma > last_period:
-                # German format: comma is decimal separator (e.g., "1.234,56")
-                # Remove periods (thousands separator) and replace comma with period
-                value_str = value_str.replace('.', '').replace(',', '.')
-            else:
-                # English format: period is decimal separator (e.g., "1,234.56")
-                # Remove commas (thousands separator), keep period as-is
-                value_str = value_str.replace(',', '')
-            
-            return float(value_str)
+            return float(value_str.strip())
         except (ValueError, TypeError):
             return None

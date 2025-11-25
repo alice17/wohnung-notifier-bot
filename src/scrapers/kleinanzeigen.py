@@ -162,11 +162,13 @@ class KleinanzeigenScraper(BaseScraper):
         """
         Extracts the price from the listing, removing any old prices.
         
+        Kleinanzeigen uses German number format, which is normalized to standard format.
+        
         Args:
             listing_soup: BeautifulSoup object containing the listing HTML
             
         Returns:
-            Cleaned price string or 'N/A' if not found
+            Normalized price string in standard format or 'N/A' if not found
         """
         price_element = listing_soup.select_one(
             '.aditem-main--middle--price-shipping--price'
@@ -181,7 +183,8 @@ class KleinanzeigenScraper(BaseScraper):
         if old_price:
             old_price.decompose()
         
-        return self._clean_text(price_element.text)
+        cleaned_price = self._clean_text(price_element.text)
+        return self._normalize_german_number(cleaned_price)
 
     def _extract_size_and_rooms(self, listing_soup: BeautifulSoup) -> tuple[str, str]:
         """

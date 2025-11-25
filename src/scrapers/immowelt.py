@@ -138,11 +138,14 @@ class ImmoweltScraper(BaseScraper):
         """
         Extracts and cleans the cold rent price.
         
+        Immowelt uses German number format (e.g., '2.345' for 2345 EUR).
+        This method normalizes to standard format.
+        
         Args:
             listing_soup: BeautifulSoup object containing listing HTML
             
         Returns:
-            Cleaned price string or 'N/A' if not found
+            Normalized price string in standard format or 'N/A' if not found
         """
         price_element = listing_soup.find(
             'div', attrs={'data-testid': 'cardmfe-price-testid'}
@@ -152,7 +155,8 @@ class ImmoweltScraper(BaseScraper):
             return 'N/A'
         
         price_text = price_element.text.strip().split(' ')[0]
-        return self._clean_text(price_text)
+        cleaned_price = self._clean_text(price_text)
+        return self._normalize_german_number(cleaned_price)
 
     def _extract_address_and_borough(
         self, listing_soup: BeautifulSoup
@@ -283,9 +287,10 @@ class ImmoweltScraper(BaseScraper):
                 if value_element:
                     span_element = value_element.find('span')
                     if span_element:
-                        listing.price_total = self._clean_text(
+                        cleaned_price = self._clean_text(
                             span_element.text.strip().replace('\xa0', ' ')
                         )
+                        listing.price_total = self._normalize_german_number(cleaned_price)
                         logger.debug(
                             "  > Success: Found Warmmiete: %s", listing.price_total
                         )

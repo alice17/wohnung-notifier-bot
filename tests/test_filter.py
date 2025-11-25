@@ -16,20 +16,18 @@ class TestListingFilter(unittest.TestCase):
         """Sets up common test fixtures."""
         self.maxDiff = None
 
-    def test_to_numeric_english_format(self):
-        """Test _to_numeric with English format numbers (period as decimal)."""
-        # This is the format Deutsche Wohnen API uses
+    def test_to_numeric_standard_format(self):
+        """
+        Test _to_numeric with standard format numbers (period as decimal).
+        
+        All scrapers now normalize their numbers to standard format before
+        passing to the filter, so the filter only needs to handle this format.
+        """
         self.assertEqual(ListingFilter._to_numeric('555.02'), 555.02)
         self.assertEqual(ListingFilter._to_numeric('1234.56'), 1234.56)
         self.assertEqual(ListingFilter._to_numeric('850.0'), 850.0)
-        self.assertEqual(ListingFilter._to_numeric('1,234.56'), 1234.56)
-
-    def test_to_numeric_german_format(self):
-        """Test _to_numeric with German format numbers (comma as decimal)."""
-        # This is the format most German scrapers use
-        self.assertEqual(ListingFilter._to_numeric('555,02'), 555.02)
-        self.assertEqual(ListingFilter._to_numeric('1.234,56'), 1234.56)
-        self.assertEqual(ListingFilter._to_numeric('850,0'), 850.0)
+        self.assertEqual(ListingFilter._to_numeric('2345'), 2345.0)
+        self.assertEqual(ListingFilter._to_numeric('1800'), 1800.0)
 
     def test_to_numeric_simple_numbers(self):
         """Test _to_numeric with simple numbers without separators."""
@@ -43,19 +41,24 @@ class TestListingFilter(unittest.TestCase):
         self.assertIsNone(ListingFilter._to_numeric('abc'))
         self.assertIsNone(ListingFilter._to_numeric(None))
 
-    def test_to_numeric_regression_deutsche_wohnen_bug(self):
+    def test_to_numeric_regression_price_parsing(self):
         """
-        Regression test for Deutsche Wohnen price parsing bug.
+        Regression test for price parsing.
         
-        Bug: "555.02" was incorrectly parsed as 55502.0 instead of 555.02
-        This caused listings to be incorrectly filtered out.
+        Ensures that standard format prices are correctly parsed.
+        All scrapers normalize to this format before filtering.
         """
-        # The bug case: English format should parse correctly
+        # Standard format should parse correctly
         result = ListingFilter._to_numeric('555.02')
         self.assertEqual(result, 555.02)
         
-        # Verify it passes a typical filter
-        self.assertLess(result, 1200, "555.02 should be less than max 1200")
+        # Large values that were problematic when scrapers sent German format
+        self.assertEqual(ListingFilter._to_numeric('2345'), 2345.0)
+        self.assertEqual(ListingFilter._to_numeric('1800'), 1800.0)
+        
+        # Verify they correctly trigger filters
+        self.assertLess(555.02, 1200, "555.02 should be less than max 1200")
+        self.assertGreater(2345, 1200, "2345 should be greater than max 1200")
 
     def _create_config(self, filters_config: dict) -> Config:
         """
@@ -147,10 +150,10 @@ class TestListingFilter(unittest.TestCase):
         })
         listing_filter = ListingFilter(config, None)
         listing = self._create_listing(
-            price_total="1000,00",
-            price_cold="800,00",
-            sqm="50,0",
-            rooms="2,0"
+            price_total="1000.00",
+            price_cold="800.00",
+            sqm="50.0",
+            rooms="2.0"
         )
 
         self.assertFalse(listing_filter.is_filtered(listing))
@@ -164,7 +167,7 @@ class TestListingFilter(unittest.TestCase):
             }
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(price_total="1000,00")
+        listing = self._create_listing(price_total="1000.00")
 
         self.assertTrue(listing_filter.is_filtered(listing))
 
@@ -177,7 +180,7 @@ class TestListingFilter(unittest.TestCase):
             }
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(sqm="50,0")
+        listing = self._create_listing(sqm="50.0")
 
         self.assertTrue(listing_filter.is_filtered(listing))
 
@@ -190,7 +193,7 @@ class TestListingFilter(unittest.TestCase):
             }
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(rooms="2,0")
+        listing = self._create_listing(rooms="2.0")
 
         self.assertTrue(listing_filter.is_filtered(listing))
 
@@ -271,7 +274,7 @@ class TestListingFilter(unittest.TestCase):
             "properties": {"price_total": {"min": 500, "max": 1500}}
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(price_total="1000,00")
+        listing = self._create_listing(price_total="1000.00")
 
         self.assertFalse(listing_filter._is_filtered_by_price(listing))
 
@@ -282,7 +285,7 @@ class TestListingFilter(unittest.TestCase):
             "properties": {"price_total": {"max": 1200}}
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(price_total="1500,00")
+        listing = self._create_listing(price_total="1500.00")
 
         self.assertTrue(listing_filter._is_filtered_by_price(listing))
 
@@ -293,7 +296,7 @@ class TestListingFilter(unittest.TestCase):
             "properties": {"price_total": {"min": 800}}
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(price_total="500,00")
+        listing = self._create_listing(price_total="500.00")
 
         self.assertTrue(listing_filter._is_filtered_by_price(listing))
 
@@ -304,7 +307,7 @@ class TestListingFilter(unittest.TestCase):
             "properties": {"price_total": {"max": 800}}
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(price_total="N/A", price_cold="700,00")
+        listing = self._create_listing(price_total="N/A", price_cold="700.00")
 
         self.assertFalse(listing_filter._is_filtered_by_price(listing))
 
@@ -315,7 +318,7 @@ class TestListingFilter(unittest.TestCase):
             "properties": {"price_total": {"max": 600}}
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(price_total="N/A", price_cold="700,00")
+        listing = self._create_listing(price_total="N/A", price_cold="700.00")
 
         self.assertTrue(listing_filter._is_filtered_by_price(listing))
 
@@ -330,6 +333,36 @@ class TestListingFilter(unittest.TestCase):
 
         self.assertFalse(listing_filter._is_filtered_by_price(listing))
 
+    def test_is_filtered_by_price_regression_high_prices(self):
+        """
+        Regression test for price filtering with high values.
+        
+        Bug: Prices like '2.345' in German format were incorrectly parsed as 2.345
+        instead of 2345, causing them to pass max price filters incorrectly.
+        
+        Now scrapers normalize to standard format before filtering, so the filter
+        receives '2345' and correctly filters it.
+        """
+        config = self._create_config({
+            "enabled": True,
+            "properties": {"price_total": {"max": 1200}}
+        })
+        listing_filter = ListingFilter(config, None)
+        
+        # Test cases from the bug report (now in normalized standard format)
+        listing1 = self._create_listing(price_total="2825", price_cold="2345")
+        self.assertTrue(listing_filter._is_filtered_by_price(listing1), 
+                       "Price 2825 EUR should be filtered with max 1200")
+        
+        listing2 = self._create_listing(price_total="1800", price_cold="N/A")
+        self.assertTrue(listing_filter._is_filtered_by_price(listing2),
+                       "Price 1800 EUR should be filtered with max 1200")
+        
+        # Prices below max should pass
+        listing3 = self._create_listing(price_total="1150", price_cold="N/A")
+        self.assertFalse(listing_filter._is_filtered_by_price(listing3),
+                        "Price 1150 EUR should pass with max 1200")
+
     # Tests for _is_filtered_by_sqm
 
     def test_is_filtered_by_sqm_within_range(self):
@@ -339,7 +372,7 @@ class TestListingFilter(unittest.TestCase):
             "properties": {"sqm": {"min": 40, "max": 80}}
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(sqm="50,0")
+        listing = self._create_listing(sqm="50.0")
 
         self.assertFalse(listing_filter._is_filtered_by_sqm(listing))
 
@@ -350,7 +383,7 @@ class TestListingFilter(unittest.TestCase):
             "properties": {"sqm": {"min": 60}}
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(sqm="50,0")
+        listing = self._create_listing(sqm="50.0")
 
         self.assertTrue(listing_filter._is_filtered_by_sqm(listing))
 
@@ -361,7 +394,7 @@ class TestListingFilter(unittest.TestCase):
             "properties": {"sqm": {"max": 40}}
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(sqm="50,0")
+        listing = self._create_listing(sqm="50.0")
 
         self.assertTrue(listing_filter._is_filtered_by_sqm(listing))
 
@@ -385,7 +418,7 @@ class TestListingFilter(unittest.TestCase):
             "properties": {"rooms": {"min": 1, "max": 3}}
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(rooms="2,0")
+        listing = self._create_listing(rooms="2.0")
 
         self.assertFalse(listing_filter._is_filtered_by_rooms(listing))
 
@@ -396,7 +429,7 @@ class TestListingFilter(unittest.TestCase):
             "properties": {"rooms": {"min": 3}}
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(rooms="2,0")
+        listing = self._create_listing(rooms="2.0")
 
         self.assertTrue(listing_filter._is_filtered_by_rooms(listing))
 
@@ -407,7 +440,7 @@ class TestListingFilter(unittest.TestCase):
             "properties": {"rooms": {"max": 1}}
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(rooms="2,0")
+        listing = self._create_listing(rooms="2.0")
 
         self.assertTrue(listing_filter._is_filtered_by_rooms(listing))
 
@@ -662,31 +695,31 @@ class TestListingFilter(unittest.TestCase):
         result = ListingFilter._to_numeric("100")
         self.assertEqual(result, 100.0)
 
-    def test_to_numeric_valid_float_with_comma(self):
-        """Tests converting float with comma decimal separator."""
-        result = ListingFilter._to_numeric("100,50")
-        self.assertEqual(result, 100.5)
-
-    def test_to_numeric_valid_float_with_dot_ambiguous(self):
-        """
-        Tests converting ambiguous format "100.50".
-        
-        This could be either:
-        - English: 100.50 (period as decimal) = 100.5
-        - German: 100.50 (period as thousands, but missing decimal part)
-        
-        The updated logic treats it as English format since only a period is present.
-        In practice, German format would be written as "100,50" for 100.5
-        or "100.500,00" for 100500.00.
-        """
+    def test_to_numeric_valid_float_with_decimal(self):
+        """Tests converting float with period decimal separator (standard format)."""
         result = ListingFilter._to_numeric("100.50")
-        # Treated as English format: period is decimal separator
         self.assertEqual(result, 100.5)
+        
+        result2 = ListingFilter._to_numeric("1234.56")
+        self.assertEqual(result2, 1234.56)
 
-    def test_to_numeric_german_format_thousands(self):
-        """Tests converting German number format with thousands separator."""
-        result = ListingFilter._to_numeric("1.234,56")
-        self.assertEqual(result, 1234.56)
+    def test_to_numeric_large_values(self):
+        """
+        Tests converting large numeric values in standard format.
+        
+        Scrapers normalize German format (e.g., '2.345') to standard format ('2345')
+        before passing to the filter.
+        """
+        # Large values that caused issues before normalization was added
+        self.assertEqual(ListingFilter._to_numeric("2345"), 2345.0)
+        self.assertEqual(ListingFilter._to_numeric("2825"), 2825.0)
+        self.assertEqual(ListingFilter._to_numeric("1800"), 1800.0)
+        self.assertEqual(ListingFilter._to_numeric("1200"), 1200.0)
+        self.assertEqual(ListingFilter._to_numeric("999"), 999.0)
+        
+        # With decimal values
+        self.assertEqual(ListingFilter._to_numeric("2345.67"), 2345.67)
+        self.assertEqual(ListingFilter._to_numeric("1234.56"), 1234.56)
 
     def test_to_numeric_na_value(self):
         """Tests converting N/A string returns None."""
@@ -719,8 +752,8 @@ class TestListingFilter(unittest.TestCase):
         self.assertEqual(result, 0.0)
 
     def test_to_numeric_negative_number(self):
-        """Tests converting negative number string in German format."""
-        result = ListingFilter._to_numeric("-50,5")
+        """Tests converting negative number string in standard format."""
+        result = ListingFilter._to_numeric("-50.5")
         self.assertEqual(result, -50.5)
 
 

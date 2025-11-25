@@ -93,9 +93,11 @@ class InBerlinWohnenScraper(BaseScraper):
                 elif "Wohnfläche:" in dt_text:
                     details['sqm'] = dd_text
                 elif "Kaltmiete:" in dt_text:
-                    details['price_cold'] = dd_text
+                    # InBerlinWohnen uses German format, normalize it
+                    details['price_cold'] = self._normalize_german_number(dd_text)
                 elif "Gesamtmiete:" in dt_text:
-                    details['price_total'] = dd_text
+                    # InBerlinWohnen uses German format, normalize it
+                    details['price_total'] = self._normalize_german_number(dd_text)
                 elif "Zimmeranzahl:" in dt_text:
                     details['rooms'] = dd_text
                 elif "WBS:" in dt_text:

@@ -114,13 +114,14 @@ class OhneMaklerScraper(BaseScraper):
             details['link'] = f"https://www.ohne-makler.net{href}"
             details['identifier'] = listing_id
 
-        # Extract price
+        # Extract price (OhneMakler uses German format)
         price_span = listing_soup.find(
             'span', 
             class_=re.compile(r'.*text-primary-500.*text-xl.*')
         )
         if price_span:
-            details['price_total'] = self._clean_text(price_span.get_text(strip=True))
+            cleaned_price = self._clean_text(price_span.get_text(strip=True))
+            details['price_total'] = self._normalize_german_number(cleaned_price)
 
         # Extract title
         title_h4 = listing_soup.find('h4')

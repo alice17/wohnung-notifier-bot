@@ -48,5 +48,34 @@ class BaseScraper(ABC):
                     return borough_list[0] if borough_list else "Unknown"
         return "N/A"
 
+    @staticmethod
+    def _normalize_german_number(value_str: str) -> str:
+        """
+        Normalizes German number format to standard format.
+        
+        Converts German format (period as thousands, comma as decimal)
+        to standard format (no thousands separator, period as decimal).
+        
+        Examples:
+            '2.345' -> '2345' (thousands)
+            '2.345,67' -> '2345.67' (thousands + decimal)
+            '1.200' -> '1200'
+            
+        Args:
+            value_str: Number string in German format
+            
+        Returns:
+            Number string in standard format or original if not applicable
+        """
+        if not value_str or value_str == 'N/A':
+            return value_str
+            
+        # German format uses period for thousands and comma for decimals
+        # Remove thousands separators (periods) and convert decimal separator (comma to period)
+        value_str = value_str.replace('.', '')  # Remove thousands separator
+        value_str = value_str.replace(',', '.')  # Convert decimal separator
+        
+        return value_str
+
     def __str__(self):
         return f"Scraper({self.name})"
