@@ -48,29 +48,30 @@ class ListingStore:
 
     def save(self, listings: Dict[str, Listing]) -> None:
         """
-        Saves the current set of listings to the database.
+        Saves the provided listings to the database.
         
-        This method performs a full sync, saving all provided listings
-        and removing any that are no longer present.
+        This method saves all provided listings (insert or update).
+        Old listings are cleaned up separately via cleanup_old_listings().
         
         Args:
             listings: Dictionary of listings to persist.
         """
         try:
-            # Get current listings from database
-            current_listings = self.db_manager.load_all_listings()
-            current_ids = set(current_listings.keys())
-            new_ids = set(listings.keys())
-            
-            # Determine what needs to be deleted
-            ids_to_delete = current_ids - new_ids
-            if ids_to_delete:
-                self.db_manager.delete_listings(list(ids_to_delete))
-                logger.info(f"Removed {len(ids_to_delete)} listings from database")
-            
-            # Save all current listings
             if listings:
                 self.db_manager.save_listings(listings)
                 logger.info(f"Saved {len(listings)} listings to database")
         except Exception as e:
             logger.error(f"Error saving listings to database: {e}")
+
+    def cleanup_old_listings(self, max_age_days: int = 2) -> int:
+        """
+        Removes listings older than the specified number of days.
+        
+        Args:
+            max_age_days: Maximum age in days before a listing is deleted.
+                          Defaults to 2 days.
+        
+        Returns:
+            Number of listings removed.
+        """
+        return self.db_manager.delete_old_listings(max_age_days)
