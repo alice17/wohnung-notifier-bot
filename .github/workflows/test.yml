@@ -30,7 +30,31 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Test with pytest
       run: |
-        pytest --cov=src --cov-report=xml --cov-report=term
+        pytest --cov=src --cov-report=xml --cov-report=term | tee coverage-output.txt
+    - name: Extract coverage percentage
+      id: coverage
+      run: |
+        COVERAGE=$(grep -oP 'TOTAL.*\s+\K\d+(?=%)' coverage-output.txt || echo "0")
+        echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+        if [ "$COVERAGE" -ge 80 ]; then
+          echo "color=brightgreen" >> $GITHUB_OUTPUT
+        elif [ "$COVERAGE" -ge 60 ]; then
+          echo "color=yellow" >> $GITHUB_OUTPUT
+        elif [ "$COVERAGE" -ge 40 ]; then
+          echo "color=orange" >> $GITHUB_OUTPUT
+        else
+          echo "color=red" >> $GITHUB_OUTPUT
+        fi
+    - name: Create coverage badge
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      uses: schneegans/dynamic-badges-action@v1.7.0
+      with:
+        auth: ${{ secrets.GIST_TOKEN }}
+        gistID: ${{ secrets.GIST_ID }}
+        filename: coverage-badge.json
+        label: coverage
+        message: ${{ steps.coverage.outputs.percentage }}%
+        color: ${{ steps.coverage.outputs.color }}
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
       with:
