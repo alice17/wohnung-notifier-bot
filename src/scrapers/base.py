@@ -1,10 +1,16 @@
 """
 This module defines the BaseScraper abstract base class.
 """
-from abc import ABC, abstractmethod
-from typing import Dict, Optional, List
+from __future__ import annotations
 
+from abc import ABC, abstractmethod
+from typing import Dict, Optional, TYPE_CHECKING
+
+from src.core.constants import DEFAULT_USER_AGENT
 from src.listing import Listing
+
+if TYPE_CHECKING:
+    from src.services import BoroughResolver
 
 
 class BaseScraper(ABC):
@@ -13,18 +19,17 @@ class BaseScraper(ABC):
     def __init__(self, name: str):
         self.name = name
         self.url: str = ""
-        self.headers = {
-            'User-Agent': (
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                'AppleWebKit/537.36 (KHTML, like Gecko) '
-                'Chrome/91.0.4472.124 Safari/537.36'
-            )
-        }
-        self.zip_to_borough_map: Optional[Dict[str, List[str]]] = None
+        self.headers = {'User-Agent': DEFAULT_USER_AGENT}
+        self.borough_resolver: Optional[BoroughResolver] = None
 
-    def set_zip_to_borough_map(self, zip_to_borough_map: Dict[str, List[str]]):
-        """Sets the zip to borough map for the scraper."""
-        self.zip_to_borough_map = zip_to_borough_map
+    def set_borough_resolver(self, borough_resolver: BoroughResolver) -> None:
+        """
+        Sets the borough resolver for the scraper.
+        
+        Args:
+            borough_resolver: Service for resolving zip codes to boroughs.
+        """
+        self.borough_resolver = borough_resolver
 
     @abstractmethod
     def get_current_listings(
@@ -34,18 +39,17 @@ class BaseScraper(ABC):
         raise NotImplementedError
 
     def _get_borough_from_zip(self, zip_code: str) -> str:
-        """Finds the borough for a given zip code from the mapping."""
-        if self.zip_to_borough_map:
-            for zip_pattern, borough_list in self.zip_to_borough_map.items():
-                if '-' in zip_pattern:
-                    try:
-                        start, end = map(int, zip_pattern.split('-'))
-                        if start <= int(zip_code) <= end:
-                            return borough_list[0] if borough_list else "Unknown"
-                    except ValueError:
-                        continue  # Ignore invalid patterns
-                elif zip_code == zip_pattern:
-                    return borough_list[0] if borough_list else "Unknown"
+        """
+        Finds the borough for a given zip code.
+        
+        Args:
+            zip_code: A 5-digit Berlin zip code.
+            
+        Returns:
+            The borough name or "N/A" if not found.
+        """
+        if self.borough_resolver:
+            return self.borough_resolver.get_borough_or_default(zip_code, "N/A")
         return "N/A"
 
     @staticmethod

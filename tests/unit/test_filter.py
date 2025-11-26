@@ -1,12 +1,16 @@
 """
 Unit tests for the ListingFilter class.
 """
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from src.config import Config
 from src.filter import ListingFilter
 from src.listing import Listing
+from src.services.borough_resolver import BoroughResolver
 
 
 class TestListingFilter(unittest.TestCase):
@@ -15,6 +19,34 @@ class TestListingFilter(unittest.TestCase):
     def setUp(self):
         """Sets up common test fixtures."""
         self.maxDiff = None
+        
+        # Create a temporary mapping file for BoroughResolver
+        self.test_mapping = {
+            "10115": ["Mitte"],
+            "10179": ["Mitte"],
+            "10243": ["Friedrichshain"]
+        }
+        self.temp_file = tempfile.NamedTemporaryFile(
+            mode='w', suffix='.json', delete=False
+        )
+        json.dump(self.test_mapping, self.temp_file)
+        self.temp_file.close()
+
+    def tearDown(self):
+        """Clean up temporary file."""
+        Path(self.temp_file.name).unlink(missing_ok=True)
+
+    def _create_resolver(self, mapping: dict = None) -> BoroughResolver:
+        """Creates a BoroughResolver with specified mapping."""
+        if mapping is None:
+            return BoroughResolver(self.temp_file.name)
+        
+        temp = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+        json.dump(mapping, temp)
+        temp.close()
+        resolver = BoroughResolver(temp.name)
+        Path(temp.name).unlink(missing_ok=True)
+        return resolver
 
     def test_to_numeric_standard_format(self):
         """
@@ -48,28 +80,17 @@ class TestListingFilter(unittest.TestCase):
         Ensures that standard format prices are correctly parsed.
         All scrapers normalize to this format before filtering.
         """
-        # Standard format should parse correctly
         result = ListingFilter._to_numeric('555.02')
         self.assertEqual(result, 555.02)
         
-        # Large values that were problematic when scrapers sent German format
         self.assertEqual(ListingFilter._to_numeric('2345'), 2345.0)
         self.assertEqual(ListingFilter._to_numeric('1800'), 1800.0)
         
-        # Verify they correctly trigger filters
         self.assertLess(555.02, 1200, "555.02 should be less than max 1200")
         self.assertGreater(2345, 1200, "2345 should be greater than max 1200")
 
     def _create_config(self, filters_config: dict) -> Config:
-        """
-        Creates a Config object with specified filters.
-
-        Args:
-            filters_config: Dictionary containing filter configuration
-
-        Returns:
-            Config: A mock Config object with the specified filters
-        """
+        """Creates a Config object with specified filters."""
         config_data = {
             "telegram": {"bot_token": "token", "chat_id": "123"},
             "scrapers": {},
@@ -78,15 +99,7 @@ class TestListingFilter(unittest.TestCase):
         return Config(config_data)
 
     def _create_listing(self, **kwargs) -> Listing:
-        """
-        Creates a Listing object with default or specified values.
-
-        Args:
-            **kwargs: Keyword arguments to override default listing values
-
-        Returns:
-            Listing: A Listing object with specified or default values
-        """
+        """Creates a Listing object with default or specified values."""
         defaults = {
             "source": "test_source",
             "address": "Teststrasse 1, 10115 Berlin",
@@ -107,18 +120,18 @@ class TestListingFilter(unittest.TestCase):
     def test_initialization_with_filters_enabled(self):
         """Tests ListingFilter initialization with filters enabled."""
         config = self._create_config({"enabled": True})
-        zip_map = {"10115": ["Mitte"]}
-        listing_filter = ListingFilter(config, zip_map)
+        resolver = self._create_resolver()
+        listing_filter = ListingFilter(config, resolver)
 
         self.assertEqual(listing_filter.filters, {"enabled": True})
-        self.assertEqual(listing_filter.zip_to_borough_map, zip_map)
+        self.assertIsNotNone(listing_filter.borough_resolver)
 
-    def test_initialization_with_no_zip_map(self):
-        """Tests ListingFilter initialization without zip map."""
+    def test_initialization_with_no_resolver(self):
+        """Tests ListingFilter initialization without resolver."""
         config = self._create_config({"enabled": False})
         listing_filter = ListingFilter(config, None)
 
-        self.assertIsNone(listing_filter.zip_to_borough_map)
+        self.assertIsNone(listing_filter.borough_resolver)
 
     # Tests for is_filtered method
 
@@ -218,8 +231,8 @@ class TestListingFilter(unittest.TestCase):
                 "boroughs": {"allowed_values": ["Charlottenburg"]}
             }
         })
-        zip_map = {"10115": ["Mitte"]}
-        listing_filter = ListingFilter(config, zip_map)
+        resolver = self._create_resolver({"10115": ["Mitte"]})
+        listing_filter = ListingFilter(config, resolver)
         listing = self._create_listing(address="Teststrasse 1, 10115 Berlin")
 
         self.assertTrue(listing_filter.is_filtered(listing))
@@ -334,34 +347,21 @@ class TestListingFilter(unittest.TestCase):
         self.assertFalse(listing_filter._is_filtered_by_price(listing))
 
     def test_is_filtered_by_price_regression_high_prices(self):
-        """
-        Regression test for price filtering with high values.
-        
-        Bug: Prices like '2.345' in German format were incorrectly parsed as 2.345
-        instead of 2345, causing them to pass max price filters incorrectly.
-        
-        Now scrapers normalize to standard format before filtering, so the filter
-        receives '2345' and correctly filters it.
-        """
+        """Regression test for price filtering with high values."""
         config = self._create_config({
             "enabled": True,
             "properties": {"price_total": {"max": 1200}}
         })
         listing_filter = ListingFilter(config, None)
         
-        # Test cases from the bug report (now in normalized standard format)
         listing1 = self._create_listing(price_total="2825", price_cold="2345")
-        self.assertTrue(listing_filter._is_filtered_by_price(listing1), 
-                       "Price 2825 EUR should be filtered with max 1200")
+        self.assertTrue(listing_filter._is_filtered_by_price(listing1))
         
         listing2 = self._create_listing(price_total="1800", price_cold="N/A")
-        self.assertTrue(listing_filter._is_filtered_by_price(listing2),
-                       "Price 1800 EUR should be filtered with max 1200")
+        self.assertTrue(listing_filter._is_filtered_by_price(listing2))
         
-        # Prices below max should pass
         listing3 = self._create_listing(price_total="1150", price_cold="N/A")
-        self.assertFalse(listing_filter._is_filtered_by_price(listing3),
-                        "Price 1150 EUR should pass with max 1200")
+        self.assertFalse(listing_filter._is_filtered_by_price(listing3))
 
     # Tests for _is_filtered_by_sqm
 
@@ -520,8 +520,8 @@ class TestListingFilter(unittest.TestCase):
             "enabled": True,
             "properties": {"boroughs": {}}
         })
-        zip_map = {"10115": ["Mitte"]}
-        listing_filter = ListingFilter(config, zip_map)
+        resolver = self._create_resolver({"10115": ["Mitte"]})
+        listing_filter = ListingFilter(config, resolver)
         listing = self._create_listing(address="Teststrasse 1, 10115 Berlin")
 
         self.assertFalse(listing_filter._is_filtered_by_borough(listing))
@@ -532,8 +532,8 @@ class TestListingFilter(unittest.TestCase):
             "enabled": True,
             "properties": {"boroughs": {"allowed_values": ["Mitte"]}}
         })
-        zip_map = {"10115": ["Mitte"]}
-        listing_filter = ListingFilter(config, zip_map)
+        resolver = self._create_resolver({"10115": ["Mitte"]})
+        listing_filter = ListingFilter(config, resolver)
         listing = self._create_listing(address="Teststrasse 1, 10115 Berlin")
 
         self.assertFalse(listing_filter._is_filtered_by_borough(listing))
@@ -544,8 +544,8 @@ class TestListingFilter(unittest.TestCase):
             "enabled": True,
             "properties": {"boroughs": {"allowed_values": ["Charlottenburg"]}}
         })
-        zip_map = {"10115": ["Mitte"]}
-        listing_filter = ListingFilter(config, zip_map)
+        resolver = self._create_resolver({"10115": ["Mitte"]})
+        listing_filter = ListingFilter(config, resolver)
         listing = self._create_listing(address="Teststrasse 1, 10115 Berlin")
 
         self.assertTrue(listing_filter._is_filtered_by_borough(listing))
@@ -556,8 +556,8 @@ class TestListingFilter(unittest.TestCase):
             "enabled": True,
             "properties": {"boroughs": {"allowed_values": ["MITTE"]}}
         })
-        zip_map = {"10115": ["Mitte"]}
-        listing_filter = ListingFilter(config, zip_map)
+        resolver = self._create_resolver({"10115": ["Mitte"]})
+        listing_filter = ListingFilter(config, resolver)
         listing = self._create_listing(address="Teststrasse 1, 10115 Berlin")
 
         self.assertFalse(listing_filter._is_filtered_by_borough(listing))
@@ -568,8 +568,8 @@ class TestListingFilter(unittest.TestCase):
             "enabled": True,
             "properties": {"boroughs": {"allowed_values": ["Mitte"]}}
         })
-        zip_map = {"10115": ["Mitte"]}
-        listing_filter = ListingFilter(config, zip_map)
+        resolver = self._create_resolver({"10115": ["Mitte"]})
+        listing_filter = ListingFilter(config, resolver)
         listing = self._create_listing(address="Teststrasse 1, Berlin")
 
         # Should not filter when borough cannot be determined
@@ -581,8 +581,8 @@ class TestListingFilter(unittest.TestCase):
             "enabled": True,
             "properties": {"boroughs": {"allowed_values": ["Mitte"]}}
         })
-        zip_map = {"10115": ["Mitte"]}
-        listing_filter = ListingFilter(config, zip_map)
+        resolver = self._create_resolver({"10115": ["Mitte"]})
+        listing_filter = ListingFilter(config, resolver)
         listing = self._create_listing(address="Teststrasse 1, 99999 Berlin")
 
         # Should not filter when borough cannot be determined
@@ -594,8 +594,8 @@ class TestListingFilter(unittest.TestCase):
             "enabled": True,
             "properties": {"boroughs": {"allowed_values": ["Mitte"]}}
         })
-        zip_map = {"10115": ["Mitte"]}
-        listing_filter = ListingFilter(config, zip_map)
+        resolver = self._create_resolver({"10115": ["Mitte"]})
+        listing_filter = ListingFilter(config, resolver)
         listing = self._create_listing(address="Teststrasse 1, 10115 Berlin")
 
         listing_filter._is_filtered_by_borough(listing)
@@ -607,86 +607,24 @@ class TestListingFilter(unittest.TestCase):
             "enabled": True,
             "properties": {"boroughs": {"allowed_values": ["Mitte"]}}
         })
-        zip_map = {"10115": ["Mitte", "Tiergarten"]}
-        listing_filter = ListingFilter(config, zip_map)
+        resolver = self._create_resolver({"10115": ["Mitte", "Tiergarten"]})
+        listing_filter = ListingFilter(config, resolver)
         listing = self._create_listing(address="Teststrasse 1, 10115 Berlin")
 
         self.assertFalse(listing_filter._is_filtered_by_borough(listing))
         self.assertEqual(listing.borough, "Mitte, Tiergarten")
 
-    # Tests for _get_boroughs_from_address
-
-    def test_get_boroughs_from_address_valid_zipcode(self):
-        """Tests getting boroughs from address with valid zipcode."""
-        config = self._create_config({"enabled": True})
-        zip_map = {"10115": ["Mitte"], "10179": ["Mitte"]}
-        listing_filter = ListingFilter(config, zip_map)
-
-        boroughs = listing_filter._get_boroughs_from_address("Teststrasse 1, 10115 Berlin")
-        self.assertEqual(boroughs, ["Mitte"])
-
-    def test_get_boroughs_from_address_no_zipcode(self):
-        """Tests getting boroughs from address without zipcode."""
-        config = self._create_config({"enabled": True})
-        zip_map = {"10115": ["Mitte"]}
-        listing_filter = ListingFilter(config, zip_map)
-
-        boroughs = listing_filter._get_boroughs_from_address("Teststrasse 1, Berlin")
-        self.assertIsNone(boroughs)
-
-    def test_get_boroughs_from_address_unknown_zipcode(self):
-        """Tests getting boroughs from address with unknown zipcode."""
-        config = self._create_config({"enabled": True})
-        zip_map = {"10115": ["Mitte"]}
-        listing_filter = ListingFilter(config, zip_map)
-
-        boroughs = listing_filter._get_boroughs_from_address("Teststrasse 1, 99999 Berlin")
-        self.assertIsNone(boroughs)
-
-    def test_get_boroughs_from_address_no_zip_map(self):
-        """Tests getting boroughs when zip map is not available."""
-        config = self._create_config({"enabled": True})
+    def test_is_filtered_by_borough_no_resolver(self):
+        """Tests borough filtering when resolver is not available."""
+        config = self._create_config({
+            "enabled": True,
+            "properties": {"boroughs": {"allowed_values": ["Mitte"]}}
+        })
         listing_filter = ListingFilter(config, None)
+        listing = self._create_listing(address="Teststrasse 1, 10115 Berlin")
 
-        boroughs = listing_filter._get_boroughs_from_address("Teststrasse 1, 10115 Berlin")
-        self.assertIsNone(boroughs)
-
-    # Tests for _extract_zipcode
-
-    def test_extract_zipcode_valid(self):
-        """Tests extracting valid 5-digit zipcode."""
-        zipcode = ListingFilter._extract_zipcode("Teststrasse 1, 10115 Berlin")
-        self.assertEqual(zipcode, "10115")
-
-    def test_extract_zipcode_multiple_numbers(self):
-        """Tests extracting zipcode when multiple numbers present."""
-        zipcode = ListingFilter._extract_zipcode("Teststrasse 42, 10115 Berlin")
-        self.assertEqual(zipcode, "10115")
-
-    def test_extract_zipcode_no_zipcode(self):
-        """Tests extracting zipcode when none present."""
-        zipcode = ListingFilter._extract_zipcode("Teststrasse, Berlin")
-        self.assertIsNone(zipcode)
-
-    def test_extract_zipcode_only_4_digits(self):
-        """Tests that 4-digit numbers are not extracted as zipcodes."""
-        zipcode = ListingFilter._extract_zipcode("Teststrasse 1234, Berlin")
-        self.assertIsNone(zipcode)
-
-    def test_extract_zipcode_only_6_digits(self):
-        """Tests that 6-digit numbers are not extracted as zipcodes."""
-        zipcode = ListingFilter._extract_zipcode("Teststrasse 123456, Berlin")
-        self.assertIsNone(zipcode)
-
-    def test_extract_zipcode_at_start(self):
-        """Tests extracting zipcode at start of string."""
-        zipcode = ListingFilter._extract_zipcode("10115 Berlin, Teststrasse 1")
-        self.assertEqual(zipcode, "10115")
-
-    def test_extract_zipcode_at_end(self):
-        """Tests extracting zipcode at end of string."""
-        zipcode = ListingFilter._extract_zipcode("Berlin, Teststrasse 1, 10115")
-        self.assertEqual(zipcode, "10115")
+        # Should not filter when resolver not available
+        self.assertFalse(listing_filter._is_filtered_by_borough(listing))
 
     # Tests for _to_numeric
 
@@ -696,7 +634,7 @@ class TestListingFilter(unittest.TestCase):
         self.assertEqual(result, 100.0)
 
     def test_to_numeric_valid_float_with_decimal(self):
-        """Tests converting float with period decimal separator (standard format)."""
+        """Tests converting float with period decimal separator."""
         result = ListingFilter._to_numeric("100.50")
         self.assertEqual(result, 100.5)
         
@@ -704,20 +642,13 @@ class TestListingFilter(unittest.TestCase):
         self.assertEqual(result2, 1234.56)
 
     def test_to_numeric_large_values(self):
-        """
-        Tests converting large numeric values in standard format.
-        
-        Scrapers normalize German format (e.g., '2.345') to standard format ('2345')
-        before passing to the filter.
-        """
-        # Large values that caused issues before normalization was added
+        """Tests converting large numeric values in standard format."""
         self.assertEqual(ListingFilter._to_numeric("2345"), 2345.0)
         self.assertEqual(ListingFilter._to_numeric("2825"), 2825.0)
         self.assertEqual(ListingFilter._to_numeric("1800"), 1800.0)
         self.assertEqual(ListingFilter._to_numeric("1200"), 1200.0)
         self.assertEqual(ListingFilter._to_numeric("999"), 999.0)
         
-        # With decimal values
         self.assertEqual(ListingFilter._to_numeric("2345.67"), 2345.67)
         self.assertEqual(ListingFilter._to_numeric("1234.56"), 1234.56)
 
@@ -759,4 +690,3 @@ class TestListingFilter(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

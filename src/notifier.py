@@ -7,15 +7,12 @@ from typing import Dict, Any, Union
 
 import requests
 
+from src.core.constants import Colors, REQUEST_TIMEOUT_SECONDS
 from src.listing import Listing
 
 logger = logging.getLogger(__name__)
 
-RED = "\033[91m"
-RESET = "\033[0m"
-
 TELEGRAM_API_URL_TEMPLATE = "https://api.telegram.org/bot{token}/sendMessage"
-REQUEST_TIMEOUT = 10
 
 
 def escape_markdown_v2(text: Union[str, int, float]) -> str:
@@ -64,13 +61,13 @@ class TelegramNotifier:
             "disable_web_page_preview": True
         }
         try:
-            response = requests.post(self.url, data=payload, timeout=REQUEST_TIMEOUT)
+            response = requests.post(self.url, data=payload, timeout=REQUEST_TIMEOUT_SECONDS)
             response.raise_for_status()  # Raise an exception for bad status codes
             logger.info(f"Telegram response: {response.json().get('ok', False)}")
         except requests.exceptions.HTTPError as http_err:
-            logger.exception(f"{RED}Telegram API Error: {http_err} - {response.text}{RESET}")
+            logger.exception(f"{Colors.RED}Telegram API Error: {http_err} - {response.text}{Colors.RESET}")
         except Exception:
-            logger.exception(f"{RED}Error sending Telegram message{RESET}")
+            logger.exception(f"{Colors.RED}Error sending Telegram message{Colors.RESET}")
 
     def format_listing_message(self, listing: Listing) -> str:
         """

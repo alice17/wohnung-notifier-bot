@@ -2,26 +2,35 @@
 This module defines the ListingFilter class, which is responsible for filtering
 apartment listings based on user-defined criteria.
 """
+from __future__ import annotations
+
 import logging
-import re
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, TYPE_CHECKING
 
 from src.config import Config
+from src.core.constants import Colors
 from src.listing import Listing
 
-logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from src.services import BoroughResolver
 
-YELLOW = "\033[93m"
-RESET = "\033[0m"
+logger = logging.getLogger(__name__)
 
 
 class ListingFilter:
     # pylint: disable=too-few-public-methods
     """Encapsulates all logic for filtering listings."""
 
-    def __init__(self, config: Config, zip_to_borough_map: Optional[Dict[str, List[str]]]):
+    def __init__(self, config: Config, borough_resolver: Optional[BoroughResolver]):
+        """
+        Initialize the listing filter.
+        
+        Args:
+            config: Application configuration containing filter rules.
+            borough_resolver: Service for resolving zip codes to boroughs.
+        """
         self.filters = config.filters
-        self.zip_to_borough_map = zip_to_borough_map
+        self.borough_resolver = borough_resolver
 
     def is_filtered(self, listing: Listing) -> bool:
         """Checks if a listing should be filtered out based on any criteria."""
@@ -62,7 +71,7 @@ class ListingFilter:
 
         rules = self.filters.get("properties", {}).get("price_total", {})
         if not self._passes_numeric_filter(price_val, rules):
-            logger.info(f"{YELLOW}FILTERED (Price {price_type}): {price_to_log}€{RESET}")
+            logger.info(f"{Colors.YELLOW}FILTERED (Price {price_type}): {price_to_log}€{Colors.RESET}")
             return True
         return False
 
@@ -70,7 +79,7 @@ class ListingFilter:
         sqm_val = self._to_numeric(listing.sqm)
         rules = self.filters.get("properties", {}).get("sqm", {})
         if not self._passes_numeric_filter(sqm_val, rules):
-            logger.info(f"{YELLOW}FILTERED (SQM): {listing.sqm}m²{RESET}")
+            logger.info(f"{Colors.YELLOW}FILTERED (SQM): {listing.sqm}m²{Colors.RESET}")
             return True
         return False
 
@@ -78,7 +87,7 @@ class ListingFilter:
         rooms_val = self._to_numeric(listing.rooms)
         rules = self.filters.get("properties", {}).get("rooms", {})
         if not self._passes_numeric_filter(rooms_val, rules):
-            logger.info(f"{YELLOW}FILTERED (Rooms): {listing.rooms}{RESET}")
+            logger.info(f"{Colors.YELLOW}FILTERED (Rooms): {listing.rooms}{Colors.RESET}")
             return True
         return False
 
@@ -86,7 +95,7 @@ class ListingFilter:
         rules = self.filters.get("properties", {}).get("wbs", {})
         allowed_values = rules.get("allowed_values", [])
         if allowed_values and listing.wbs.strip().lower() not in [v.lower() for v in allowed_values]:
-            logger.info(f"{YELLOW}FILTERED (WBS): '{listing.wbs}'{RESET}")
+            logger.info(f"{Colors.YELLOW}FILTERED (WBS): '{listing.wbs}'{Colors.RESET}")
             return True
         return False
 
@@ -96,33 +105,27 @@ class ListingFilter:
         if not allowed_boroughs:
             return False
 
-        listing_boroughs = self._get_boroughs_from_address(listing.address)
+        if not self.borough_resolver:
+            logger.warning("Borough resolver not available. Cannot filter by borough.")
+            return False
+
+        listing_boroughs = self.borough_resolver.get_boroughs_from_address(listing.address)
         if listing_boroughs:
-            listing.borough = ", ".join(listing_boroughs)
+            listing.borough = self.borough_resolver.format_boroughs(listing_boroughs)
             allowed_set = {b.lower() for b in allowed_boroughs}
             if not any(b.lower() in allowed_set for b in listing_boroughs):
-                logger.info(f"{YELLOW}FILTERED (Borough): '{listing.borough}' not in allowed boroughs.{RESET}")
+                logger.info(
+                    f"{Colors.YELLOW}FILTERED (Borough): "
+                    f"'{listing.borough}' not in allowed boroughs.{Colors.RESET}"
+                )
                 return True
         else:
-            logger.info(f"Borough: Could not determine borough for address '{listing.address}'. Sending it anyway.")
+            logger.info(
+                f"Borough: Could not determine borough for address "
+                f"'{listing.address}'. Sending it anyway."
+            )
             return False
         return False
-
-    def _get_boroughs_from_address(self, address: str) -> Optional[List[str]]:
-        if not self.zip_to_borough_map:
-            logger.warning("Zip to borough map is not loaded. Cannot determine borough.")
-            return None
-
-        zipcode = self._extract_zipcode(address)
-        if not zipcode:
-            logger.debug(f"No zipcode found in address: {address}")
-            return None
-        return self.zip_to_borough_map.get(zipcode)
-
-    @staticmethod
-    def _extract_zipcode(address: str) -> Optional[str]:
-        match = re.search(r'\b\d{5}\b', address)
-        return match.group(0) if match else None
 
     @staticmethod
     def _to_numeric(value_str: str) -> Optional[float]:

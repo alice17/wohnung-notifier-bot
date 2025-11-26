@@ -1,196 +1,380 @@
 """
-Module for WBM-specific functionality, specifically for auto-applying to listings.
+WBM (Wohnungsbaugesellschaft Berlin-Mitte) auto-application handler.
+
+This module provides automatic application submission for WBM apartment listings
+by parsing their Powermail forms and submitting applicant data.
 """
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from urllib.parse import urljoin
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
-from src.notifier import TelegramNotifier, escape_markdown_v2
+from src.appliers.base import BaseApplier, ApplyResult, ApplyStatus
+from src.core.constants import REQUEST_TIMEOUT_SECONDS, Colors
+from src.listing import Listing
+from src.notifier import escape_markdown_v2
 
 logger = logging.getLogger(__name__)
 
+WBS_TRUTHY_VALUES = ('ja', 'yes', 'true', '1')
 
-def _format_applicant_data_for_log(applicant_data: Dict[str, Any]) -> str:
+
+class WBMApplier(BaseApplier):
     """
-    Formats applicant data for console logging.
-
-    Args:
-        applicant_data: Dictionary containing the applicant information.
-
-    Returns:
-        A formatted string for logging.
+    Auto-application handler for WBM (Wohnungsbaugesellschaft Berlin-Mitte).
+    
+    Handles automatic form submission for apartment listings on wbm.de
+    by parsing Powermail forms and filling in applicant information.
     """
-    lines = ["Application Data:"]
-    for key, value in applicant_data.items():
-        lines.append(f"  {key}: {value}")
-    return "\n".join(lines)
 
-
-def _format_applicant_data_for_telegram(
-    listing_url: str,
-    applicant_data: Dict[str, Any]
-) -> str:
-    """
-    Formats applicant data for Telegram notification with MarkdownV2.
-
-    Args:
-        listing_url: The URL of the listing applied to.
-        applicant_data: Dictionary containing the applicant information.
-
-    Returns:
-        A formatted string for Telegram MarkdownV2.
-    """
-    escaped_url = escape_markdown_v2(listing_url)
-    lines = [
-        "✅ *Automatically applied to WBM listing*",
-        "",
-        f"🔗 [Listing]({escaped_url})",
-        "",
-        "📋 *Application Data:*"
+    URL_PATTERNS = [
+        "https://www.wbm.de/",
+        "https://wbm.de/",
     ]
-    for key, value in applicant_data.items():
-        escaped_key = escape_markdown_v2(key)
-        escaped_value = escape_markdown_v2(value if value else "N/A")
-        lines.append(f"  • *{escaped_key}:* {escaped_value}")
-    return "\n".join(lines)
 
+    @property
+    def name(self) -> str:
+        """Return the applier name."""
+        return "WBM"
 
-def apply_wbm(listing_url: str, wbm_config: Dict[str, Any], notifier: TelegramNotifier) -> None:
-    """
-    Applies to a WBM listing automatically.
+    @property
+    def url_patterns(self) -> List[str]:
+        """Return URL patterns this applier handles."""
+        return self.URL_PATTERNS
 
-    Args:
-        listing_url: The URL of the WBM listing.
-        wbm_config: The WBM applicant configuration dictionary.
-        notifier: The notifier instance to send updates.
-    """
-    if not wbm_config:
-        logger.warning("WBM configuration missing in 'wbm_applicant' section. Skipping auto-application.")
-        return
+    def apply(self, listing: Listing) -> ApplyResult:
+        """
+        Submit an application for the given WBM listing.
+        
+        Args:
+            listing: The listing to apply for.
+            
+        Returns:
+            ApplyResult containing the outcome and details of the application.
+        """
+        if not self.is_configured():
+            logger.warning(
+                "WBM configuration missing in 'wbm_applicant' section. "
+                "Skipping auto-application."
+            )
+            return ApplyResult(
+                status=ApplyStatus.MISSING_CONFIG,
+                message="WBM applicant configuration is missing"
+            )
 
-    logger.info(f"Attempting to auto-apply for WBM listing: {listing_url}")
-    try:
-        # 1. Get the page
-        response = requests.get(listing_url)
+        listing_url = listing.link
+        logger.info(f"Attempting to auto-apply for WBM listing: {listing_url}")
+
+        try:
+            form, soup = self._fetch_and_find_form(listing_url)
+            if not form:
+                return ApplyResult(
+                    status=ApplyStatus.FORM_NOT_FOUND,
+                    message=f"Could not find application form on {listing_url}"
+                )
+
+            applicant_data = self._build_applicant_data()
+            form_data = self._prepare_form_data(form, applicant_data)
+            
+            logger.info(self._format_data_for_log(applicant_data))
+
+            submit_url = self._get_submit_url(form, listing_url)
+            return self._submit_application(submit_url, form_data, applicant_data)
+
+        except requests.RequestException as e:
+            logger.error(f"Network error applying to WBM listing {listing_url}: {e}")
+            return ApplyResult(
+                status=ApplyStatus.FAILED,
+                message=f"Network error: {e}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to apply to WBM listing {listing_url}: {e}")
+            return ApplyResult(
+                status=ApplyStatus.FAILED,
+                message=f"Unexpected error: {e}"
+            )
+
+    def _fetch_and_find_form(self, url: str) -> tuple[Optional[Tag], BeautifulSoup]:
+        """
+        Fetch the page and locate the Powermail application form.
+        
+        Args:
+            url: The listing URL to fetch.
+            
+        Returns:
+            Tuple of (form element or None, BeautifulSoup object).
+        """
+        response = requests.get(url, timeout=REQUEST_TIMEOUT_SECONDS)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        # 2. Find the form
-        # Often Powermail forms are multipart, or look for specific identifiers
-        form = None
-        forms = soup.find_all('form')
-        for f in forms:
-            if 'tx_powermail_pi1' in str(f):
-                form = f
-                break
+        for form in soup.find_all('form'):
+            if 'tx_powermail_pi1' in str(form):
+                return form, soup
+
+        logger.error(f"Could not find application form on {url}")
+        return None, soup
+
+    def _build_applicant_data(self) -> Dict[str, Any]:
+        """
+        Build human-readable applicant data dictionary from config.
         
-        if not form:
-            logger.error(f"Could not find application form on {listing_url}")
-            return
-
-        # 3. Prepare data
-        data = {}
+        Returns:
+            Dictionary with German field labels as keys.
+        """
+        has_wbs = str(self.config.get('wbs', 'nein')).lower() in WBS_TRUTHY_VALUES
         
-        # Extract all hidden inputs (tokens etc.)
-        for input_tag in form.find_all('input', type='hidden'):
-            if input_tag.get('name'):
-                data[input_tag.get('name')] = input_tag.get('value', '')
-
-        # Helper to find field name by partial match
-        def get_field_name(partial_name: str) -> Optional[str]:
-            for input_tag in form.find_all(['input', 'select', 'textarea']):
-                name = input_tag.get('name', '')
-                if f"[{partial_name}]" in name:
-                    return name
-            return None
-
-        # Map config to form fields
-        fields_to_fill = {
-            'name': wbm_config.get('name'),
-            'vorname': wbm_config.get('vorname'),
-            'strasse': wbm_config.get('strasse', ''),
-            'plz': wbm_config.get('plz', ''),
-            'ort': wbm_config.get('ort', ''),
-            'e_mail': wbm_config.get('email'),
-            'telefon': wbm_config.get('telefon', '')
+        return {
+            'Anrede': self.config.get('anrede', 'Frau'),
+            'Name': self.config.get('nachname'),
+            'Vorname': self.config.get('vorname'),
+            'Strasse': self.config.get('strasse', ''),
+            'PLZ': self.config.get('plz', ''),
+            'Ort': self.config.get('ort', ''),
+            'E-Mail': self.config.get('email'),
+            'Telefon': self.config.get('telefon', ''),
+            'WBS vorhanden': 'Ja' if has_wbs else 'Nein'
         }
 
-        # Prepare applicant data for logging (human-readable keys)
-        applicant_data = {
-            'Anrede': wbm_config.get('anrede', 'Frau'),
-            'Name': wbm_config.get('name'),
-            'Vorname': wbm_config.get('vorname'),
-            'Strasse': wbm_config.get('strasse', ''),
-            'PLZ': wbm_config.get('plz', ''),
-            'Ort': wbm_config.get('ort', ''),
-            'E-Mail': wbm_config.get('email'),
-            'Telefon': wbm_config.get('telefon', ''),
-            'WBS vorhanden': 'Ja' if str(wbm_config.get('wbs', 'nein')).lower() in ['ja', 'yes', 'true', '1'] else 'Nein'
+    def _prepare_form_data(
+        self,
+        form: Tag,
+        applicant_data: Dict[str, Any]
+    ) -> Dict[str, str]:
+        """
+        Prepare the form data dictionary for submission.
+        
+        Args:
+            form: The BeautifulSoup form element.
+            applicant_data: Human-readable applicant data.
+            
+        Returns:
+            Dictionary mapping form field names to values.
+        """
+        data = self._extract_hidden_fields(form)
+        
+        field_mapper = FormFieldMapper(form)
+        
+        # Map config values to form fields
+        field_mappings = {
+            'nachname': self.config.get('nachname'),
+            'vorname': self.config.get('vorname'),
+            'strasse': self.config.get('strasse', ''),
+            'plz': self.config.get('plz', ''),
+            'ort': self.config.get('ort', ''),
+            'e_mail': self.config.get('email'),
+            'telefon': self.config.get('telefon', '')
         }
 
-        # Log applicant data to console
-        logger.info(_format_applicant_data_for_log(applicant_data))
-
-        for field, value in fields_to_fill.items():
-            field_name = get_field_name(field)
+        for field_key, value in field_mappings.items():
+            field_name = field_mapper.find_field_name(field_key)
             if field_name and value:
                 data[field_name] = value
-        
-        # Handle Anrede (Select)
-        anrede_name = get_field_name('anrede')
-        if anrede_name:
-            data[anrede_name] = wbm_config.get('anrede', 'Frau')
 
-        # Handle WBS (Radio)
-        wbs_name = get_field_name('wbsvorhanden')
-        has_wbs = str(wbm_config.get('wbs', 'nein')).lower() in ['ja', 'yes', 'true', '1']
+        # Handle Anrede (Select dropdown)
+        anrede_name = field_mapper.find_field_name('anrede')
+        if anrede_name:
+            data[anrede_name] = self.config.get('anrede', 'Frau')
+
+        # Handle WBS (Radio button)
+        wbs_name = field_mapper.find_field_name('wbsvorhanden')
+        has_wbs = str(self.config.get('wbs', 'nein')).lower() in WBS_TRUTHY_VALUES
         if wbs_name:
-            # Typically 1 for Yes, 0 for No in these forms
             data[wbs_name] = '1' if has_wbs else '0'
 
         # Handle Privacy Checkbox
-        # The privacy checkbox usually has [] in the name, but there's also a hidden input without []
-        # We need to find the actual checkbox to get the correct name
-        privacy_cb = None
+        privacy_field = self._find_privacy_checkbox(form)
+        if privacy_field:
+            data[privacy_field.get('name')] = privacy_field.get('value', '1')
+
+        return data
+
+    def _extract_hidden_fields(self, form: Tag) -> Dict[str, str]:
+        """
+        Extract all hidden input fields from the form.
+        
+        Args:
+            form: The BeautifulSoup form element.
+            
+        Returns:
+            Dictionary of hidden field names and values.
+        """
+        data = {}
+        for input_tag in form.find_all('input', type='hidden'):
+            name = input_tag.get('name')
+            if name:
+                data[name] = input_tag.get('value', '')
+        return data
+
+    def _find_privacy_checkbox(self, form: Tag) -> Optional[Tag]:
+        """
+        Find the privacy/data protection checkbox in the form.
+        
+        Args:
+            form: The BeautifulSoup form element.
+            
+        Returns:
+            The checkbox input element or None.
+        """
         for input_tag in form.find_all('input', type='checkbox'):
             name = input_tag.get('name', '')
             if 'datenschutzhinweis' in name:
-                privacy_cb = input_tag
-                break
-        
-        if privacy_cb:
-            data[privacy_cb.get('name')] = privacy_cb.get('value', '1')
+                return input_tag
+        return None
 
-        # 4. Submit
+    def _get_submit_url(self, form: Tag, listing_url: str) -> str:
+        """
+        Determine the form submission URL.
+        
+        Args:
+            form: The BeautifulSoup form element.
+            listing_url: The original listing URL (fallback).
+            
+        Returns:
+            The absolute URL for form submission.
+        """
         action = form.get('action')
         if not action:
-            action = listing_url
+            return listing_url
         
         if action.startswith('/'):
-            action = urljoin(listing_url, action)
-
-        post_resp = requests.post(action, data=data)
-        post_resp.raise_for_status()
+            return urljoin(listing_url, action)
         
-        # Check success (heuristic)
-        success_indicators = [
-            "Vielen Dank" in post_resp.text,
-            "versendet" in post_resp.text,
-            "success" in post_resp.url,
-            "vielen-dank" in post_resp.url
-        ]
-        if any(success_indicators):
-            logger.info(f"Successfully applied to {listing_url}")
-            telegram_message = _format_applicant_data_for_telegram(listing_url, applicant_data)
-            notifier.send_message(telegram_message)
-        else:
-            logger.warning(f"Application might have failed for {listing_url}. Response might indicate error.")
-            logger.warning(f"Status Code: {post_resp.status_code}")
-            logger.warning(f"Response Text: {post_resp.text[:1000]}...")
-                
-    except Exception as e:
-        logger.error(f"Failed to apply to WBM listing {listing_url}: {e}")
+        return action
 
+    def _submit_application(
+        self,
+        url: str,
+        form_data: Dict[str, str],
+        applicant_data: Dict[str, Any]
+    ) -> ApplyResult:
+        """
+        Submit the application form and check for success.
+        
+        Args:
+            url: The submission URL.
+            form_data: The prepared form data.
+            applicant_data: Human-readable applicant data for logging.
+            
+        Returns:
+            ApplyResult indicating success or failure.
+        """
+        response = requests.post(url, data=form_data, timeout=REQUEST_TIMEOUT_SECONDS)
+        response.raise_for_status()
+
+        if self._is_submission_successful(response):
+            logger.info(f"{Colors.GREEN}Successfully applied to {url}{Colors.RESET}")
+            return ApplyResult(
+                status=ApplyStatus.SUCCESS,
+                message="Application submitted successfully",
+                applicant_data=applicant_data
+            )
+        
+        logger.warning(
+            f"Application might have failed. "
+            f"Status: {response.status_code}, "
+            f"Response preview: {response.text[:500]}..."
+        )
+        return ApplyResult(
+            status=ApplyStatus.FAILED,
+            message="Application submission did not return expected success indicators",
+            applicant_data=applicant_data
+        )
+
+    def _is_submission_successful(self, response: requests.Response) -> bool:
+        """
+        Check if the form submission was successful based on response.
+        
+        Args:
+            response: The HTTP response from form submission.
+            
+        Returns:
+            True if success indicators are found, False otherwise.
+        """
+        success_indicators = [
+            "Vielen Dank" in response.text,
+            "versendet" in response.text,
+            "success" in response.url,
+            "vielen-dank" in response.url
+        ]
+        return any(success_indicators)
+
+    def _format_data_for_log(self, applicant_data: Dict[str, Any]) -> str:
+        """
+        Format applicant data for console logging.
+        
+        Args:
+            applicant_data: Dictionary containing the applicant information.
+            
+        Returns:
+            A formatted string for logging.
+        """
+        lines = ["Application Data:"]
+        for key, value in applicant_data.items():
+            lines.append(f"  {key}: {value}")
+        return "\n".join(lines)
+
+    def format_success_message(
+        self,
+        listing_url: str,
+        applicant_data: Dict[str, Any]
+    ) -> str:
+        """
+        Format a success message for Telegram notification.
+        
+        Args:
+            listing_url: The URL of the listing applied to.
+            applicant_data: Dictionary containing the applicant information.
+            
+        Returns:
+            A formatted string for Telegram MarkdownV2.
+        """
+        escaped_url = escape_markdown_v2(listing_url)
+        lines = [
+            "✅ *Automatically applied to WBM listing*",
+            "",
+            f"🔗 [Listing]({escaped_url})",
+            "",
+            "📋 *Application Data:*"
+        ]
+        for key, value in applicant_data.items():
+            escaped_key = escape_markdown_v2(key)
+            escaped_value = escape_markdown_v2(value if value else "N/A")
+            lines.append(f"  • *{escaped_key}:* {escaped_value}")
+        return "\n".join(lines)
+
+
+class FormFieldMapper:
+    """
+    Helper class to find form field names by partial matching.
+    
+    WBM Powermail forms use dynamic field names with patterns like
+    tx_powermail_pi1[field][name] - this class helps locate them.
+    """
+
+    def __init__(self, form: Tag):
+        """
+        Initialize with a form element.
+        
+        Args:
+            form: The BeautifulSoup form element to search.
+        """
+        self.form = form
+
+    def find_field_name(self, partial_name: str) -> Optional[str]:
+        """
+        Find a form field name containing the partial name.
+        
+        Args:
+            partial_name: The partial field name to search for.
+            
+        Returns:
+            The full field name if found, None otherwise.
+        """
+        for input_tag in self.form.find_all(['input', 'select', 'textarea']):
+            name = input_tag.get('name', '')
+            if f"[{partial_name}]" in name:
+                return name
+        return None

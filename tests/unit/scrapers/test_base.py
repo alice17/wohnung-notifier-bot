@@ -1,10 +1,15 @@
 """
 Unit tests for the BaseScraper class.
 """
+import json
+import tempfile
 import unittest
-from src.scrapers.base import BaseScraper
-from src.listing import Listing
+from pathlib import Path
 from typing import Dict, Optional
+
+from src.listing import Listing
+from src.scrapers.base import BaseScraper
+from src.services.borough_resolver import BoroughResolver
 
 
 class ConcreteScraper(BaseScraper):
@@ -23,6 +28,15 @@ class TestBaseScraper(unittest.TestCase):
     def setUp(self):
         """Sets up common test fixtures."""
         self.scraper = ConcreteScraper("test_scraper")
+
+    def _create_resolver(self, mapping: dict) -> BoroughResolver:
+        """Creates a BoroughResolver with specified mapping."""
+        temp = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+        json.dump(mapping, temp)
+        temp.close()
+        resolver = BoroughResolver(temp.name)
+        Path(temp.name).unlink(missing_ok=True)
+        return resolver
 
     def test_normalize_german_number_thousands_only(self):
         """Tests normalizing German format with only thousands separator."""
@@ -72,27 +86,34 @@ class TestBaseScraper(unittest.TestCase):
         self.assertEqual(self.scraper._normalize_german_number("0,99"), "0.99")
         self.assertEqual(self.scraper._normalize_german_number("0,01"), "0.01")
 
-    def test_get_borough_from_zip(self):
-        """Tests borough lookup from zip code."""
-        zip_map = {
+    def test_get_borough_from_zip_with_resolver(self):
+        """Tests borough lookup from zip code using BoroughResolver."""
+        resolver = self._create_resolver({
             "10115": ["Mitte"],
-            "10961": ["Kreuzberg"],
-            "10115-10119": ["Mitte", "Prenzlauer Berg"]
-        }
-        self.scraper.set_zip_to_borough_map(zip_map)
+            "10961": ["Kreuzberg"]
+        })
+        self.scraper.set_borough_resolver(resolver)
 
         # Exact match
         self.assertEqual(self.scraper._get_borough_from_zip("10115"), "Mitte")
         self.assertEqual(self.scraper._get_borough_from_zip("10961"), "Kreuzberg")
 
-        # No match
+        # No match returns N/A
         self.assertEqual(self.scraper._get_borough_from_zip("99999"), "N/A")
 
-        # No map set
-        scraper_no_map = ConcreteScraper("test")
-        self.assertEqual(scraper_no_map._get_borough_from_zip("10115"), "N/A")
+    def test_get_borough_from_zip_without_resolver(self):
+        """Tests borough lookup when no resolver is set."""
+        scraper_no_resolver = ConcreteScraper("test")
+        self.assertEqual(scraper_no_resolver._get_borough_from_zip("10115"), "N/A")
+
+    def test_set_borough_resolver(self):
+        """Tests that set_borough_resolver stores the resolver."""
+        resolver = self._create_resolver({"10115": ["Mitte"]})
+        self.scraper.set_borough_resolver(resolver)
+        
+        self.assertIsNotNone(self.scraper.borough_resolver)
+        self.assertEqual(self.scraper._get_borough_from_zip("10115"), "Mitte")
 
 
 if __name__ == '__main__':
     unittest.main()
-

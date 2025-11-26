@@ -1,10 +1,14 @@
 """
 Unit tests for the DeutscheWohnenScraper class.
 """
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from src.scrapers.deutschewohnen import DeutscheWohnenScraper
+from src.services.borough_resolver import BoroughResolver
 
 
 class TestDeutscheWohnenScraper(unittest.TestCase):
@@ -69,16 +73,23 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
 
     def test_extract_borough_fallback_to_zip(self):
         """Test borough extraction falls back to ZIP lookup."""
-        self.scraper.set_zip_to_borough_map({
-            '10115': ['Mitte']
-        })
+        # Create a temporary mapping file for BoroughResolver
+        temp = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+        json.dump({'10115': ['Mitte']}, temp)
+        temp.close()
         
-        listing_data = {
-            'ort': 'Berlin',  # No OT
-            'plz': '10115'
-        }
-        borough = self.scraper._extract_borough(listing_data)
-        self.assertEqual(borough, 'Mitte')
+        try:
+            resolver = BoroughResolver(temp.name)
+            self.scraper.set_borough_resolver(resolver)
+            
+            listing_data = {
+                'ort': 'Berlin',  # No OT
+                'plz': '10115'
+            }
+            borough = self.scraper._extract_borough(listing_data)
+            self.assertEqual(borough, 'Mitte')
+        finally:
+            Path(temp.name).unlink(missing_ok=True)
 
     def test_extract_price(self):
         """Test price extraction."""
@@ -209,4 +220,5 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
 
