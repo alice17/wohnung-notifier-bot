@@ -1,12 +1,12 @@
 # 🏠 Berlin Apartment Notifier
 
-A Python script that monitors multiple German real estate websites (including `inberlinwohnen.de`, `immowelt.de`, `kleinanzeigen.de`, `ohne-makler.net`, and `deutsche-wohnen.com`) for new apartment listings, filters them based on your criteria, and sends instant notifications via Telegram.
+A Python script that monitors multiple German real estate websites (including `inberlinwohnen.de`, `immowelt.de`, `kleinanzeigen.de`, `ohne-makler.net`, `deutsche-wohnen.com`, and `vonovia.de`) for new apartment listings, filters them based on your criteria, and sends instant notifications via Telegram.
 
 -----
 
 ## ✨ Key Features
 
--   **Multi-Website Support:** Natively scrapes listings from `inberlinwohnen.de`, `immowelt.de`, `kleinanzeigen.de`, `ohne-makler.net`, and `deutsche-wohnen.com`.
+-   **Multi-Website Support:** Natively scrapes listings from `inberlinwohnen.de`, `immowelt.de`, `kleinanzeigen.de`, `ohne-makler.net`, `deutsche-wohnen.com`, and `vonovia.de`. Note that `inberlinwohnen.de` is a portal that aggregates listings from Berlin's state-owned housing companies: Gewobag, HOWOGE, WBM, Gesobau, and Stadt und Land.
 -   **Intelligent Scraping:** Instead of watching the whole page, the script parses individual apartment listings, tracking them by their unique URL.
 -   **Configurable Filters:** Only get notified about apartments that fit your needs. Filter by price, size (SQM), number of rooms, WBS requirement, and Berlin boroughs.
 -   **Telegram Notifications:** Get instant alerts delivered to your phone, giving you a head-start on your application.
