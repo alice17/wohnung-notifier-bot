@@ -7,9 +7,9 @@ from __future__ import annotations
 import logging
 from typing import Optional, Dict, List, TYPE_CHECKING
 
-from src.config import Config
+from src.core.config import Config
 from src.core.constants import Colors
-from src.listing import Listing
+from src.core.listing import Listing
 
 if TYPE_CHECKING:
     from src.services import BoroughResolver

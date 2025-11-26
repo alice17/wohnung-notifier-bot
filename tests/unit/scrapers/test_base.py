@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from typing import Dict, Optional
 
-from src.listing import Listing
+from src.core.listing import Listing
 from src.scrapers.base import BaseScraper
 from src.services.borough_resolver import BoroughResolver
 

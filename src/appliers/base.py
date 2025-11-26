@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Any, List
 
-from src.listing import Listing
+from src.core.listing import Listing
 
 
 class ApplyStatus(Enum):

@@ -9,8 +9,8 @@ from typing import Dict
 
 import pytest
 
-from src.config import Config
-from src.listing import Listing
+from src.core.config import Config
+from src.core.listing import Listing
 
 
 @pytest.fixture

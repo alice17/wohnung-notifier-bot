@@ -4,8 +4,8 @@ This module contains tests for the TelegramNotifier class.
 import unittest
 from unittest.mock import MagicMock, patch
 
-from src.listing import Listing
-from src.notifier import TelegramNotifier, escape_markdown_v2
+from src.core.listing import Listing
+from src.services.notifier import TelegramNotifier, escape_markdown_v2
 
 
 class TestTelegramNotifier(unittest.TestCase):

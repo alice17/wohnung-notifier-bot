@@ -8,7 +8,7 @@ when monitoring for new listings.
 import logging
 from typing import List, Dict, Tuple, Set
 
-from src.listing import Listing
+from src.core.listing import Listing
 from src.scrapers import BaseScraper
 
 logger = logging.getLogger(__name__)

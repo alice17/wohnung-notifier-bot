@@ -6,10 +6,10 @@ import sys
 import json
 
 from src.app import App
-from src.config import Config
-from src.notifier import TelegramNotifier
+from src.core.config import Config
 from src.scrapers import SCRAPER_CLASSES
-from src.store import ListingStore
+from src.services.notifier import TelegramNotifier
+from src.services.store import ListingStore
 
 
 logging.basicConfig(

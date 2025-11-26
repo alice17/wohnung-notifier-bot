@@ -5,7 +5,7 @@ import unittest
 from typing import Dict, Any, List
 
 from src.appliers.base import BaseApplier, ApplyResult, ApplyStatus
-from src.listing import Listing
+from src.core.listing import Listing
 
 
 class ConcreteApplier(BaseApplier):

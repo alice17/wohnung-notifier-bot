@@ -6,8 +6,8 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from src.listing import Listing
-from src.store import ListingStore
+from src.core.listing import Listing
+from src.services.store import ListingStore
 
 
 class TestListingStore(unittest.TestCase):
@@ -69,10 +69,10 @@ class TestListingStoreInitialization(TestListingStore):
         """Tests that initialization creates the database file."""
         self.assertTrue(os.path.exists(self.temp_db_path))
 
-    @patch('src.store.DatabaseManager')
+    @patch('src.services.store.DatabaseManager')
     def test_init_logs_database_path(self, mock_db_manager):
         """Tests that initialization logs the database path."""
-        with patch('src.store.logger') as mock_logger:
+        with patch('src.services.store.logger') as mock_logger:
             ListingStore("custom_path.db")
             mock_logger.info.assert_called()
 
@@ -116,7 +116,7 @@ class TestListingStoreLoad(TestListingStore):
         self.assertIn("listing-1", loaded_listings)
         self.assertIn("listing-2", loaded_listings)
 
-    @patch('src.store.DatabaseManager')
+    @patch('src.services.store.DatabaseManager')
     def test_load_returns_empty_dict_on_database_error(
         self,
         mock_db_manager_class
@@ -192,7 +192,7 @@ class TestListingStoreSave(TestListingStore):
         self.assertEqual(loaded_listing.borough, "Kreuzberg")
         self.assertEqual(loaded_listing.sqm, "100")
 
-    @patch('src.store.DatabaseManager')
+    @patch('src.services.store.DatabaseManager')
     def test_save_handles_database_error_gracefully(
         self,
         mock_db_manager_class

@@ -7,8 +7,8 @@ now backed by a SQLite database for improved performance and reliability.
 import logging
 from typing import Dict
 
-from src.listing import Listing
-from src.database import DatabaseManager
+from src.core.listing import Listing
+from src.services.database import DatabaseManager
 
 logger = logging.getLogger(__name__)
 

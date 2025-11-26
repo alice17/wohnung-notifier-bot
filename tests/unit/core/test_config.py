@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.config import Config
+from src.core.config import Config
 
 
 class TestConfig(unittest.TestCase):

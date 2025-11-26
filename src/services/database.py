@@ -9,7 +9,7 @@ import sqlite3
 from contextlib import contextmanager
 from typing import Dict, Optional, List
 
-from src.listing import Listing
+from src.core.listing import Listing
 
 logger = logging.getLogger(__name__)
 

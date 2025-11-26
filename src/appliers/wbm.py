@@ -13,8 +13,8 @@ from bs4 import BeautifulSoup, Tag
 
 from src.appliers.base import BaseApplier, ApplyResult, ApplyStatus
 from src.core.constants import REQUEST_TIMEOUT_SECONDS, Colors
-from src.listing import Listing
-from src.notifier import escape_markdown_v2
+from src.core.listing import Listing
+from src.services.notifier import escape_markdown_v2
 
 logger = logging.getLogger(__name__)
 

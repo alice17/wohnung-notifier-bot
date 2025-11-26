@@ -8,7 +8,7 @@ from typing import Dict, Any, Union
 import requests
 
 from src.core.constants import Colors, REQUEST_TIMEOUT_SECONDS
-from src.listing import Listing
+from src.core.listing import Listing
 
 logger = logging.getLogger(__name__)
 

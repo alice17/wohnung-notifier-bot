@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Optional, TYPE_CHECKING
 
 from src.core.constants import DEFAULT_USER_AGENT
-from src.listing import Listing
+from src.core.listing import Listing
 
 if TYPE_CHECKING:
     from src.services import BoroughResolver

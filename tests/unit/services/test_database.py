@@ -7,8 +7,8 @@ import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
 
-from src.database import DatabaseManager
-from src.listing import Listing
+from src.services.database import DatabaseManager
+from src.core.listing import Listing
 
 
 class TestDatabaseManager(unittest.TestCase):
@@ -176,7 +176,7 @@ class TestSaveListing(TestDatabaseManager):
         self.assertEqual(loaded.borough, "Kreuzberg")
         self.assertEqual(self.db_manager.count_listings(), 1)
 
-    @patch('src.database.DatabaseManager._get_connection')
+    @patch('src.services.database.DatabaseManager._get_connection')
     def test_save_listing_returns_false_on_error(self, mock_conn):
         """Tests that save_listing returns False on database error."""
         mock_conn.side_effect = sqlite3.Error("Database error")
@@ -237,7 +237,7 @@ class TestSaveListings(TestDatabaseManager):
         loaded = self.db_manager.get_listing_by_identifier("update-batch")
         self.assertEqual(loaded.address, "Batch Updated Address")
 
-    @patch('src.database.DatabaseManager._get_connection')
+    @patch('src.services.database.DatabaseManager._get_connection')
     def test_save_listings_returns_false_on_error(self, mock_conn):
         """Tests that save_listings returns False on database error."""
         mock_conn.side_effect = sqlite3.Error("Batch save error")
@@ -282,7 +282,7 @@ class TestLoadAllListings(TestDatabaseManager):
         self.assertEqual(loaded.source, listing.source)
         self.assertEqual(loaded.address, listing.address)
 
-    @patch('src.database.DatabaseManager._get_connection')
+    @patch('src.services.database.DatabaseManager._get_connection')
     def test_load_all_returns_empty_dict_on_error(self, mock_conn):
         """Tests that load_all_listings returns empty dict on error."""
         mock_conn.side_effect = sqlite3.Error("Load error")
@@ -319,7 +319,7 @@ class TestGetListingByIdentifier(TestDatabaseManager):
         
         self.assertIsInstance(result, Listing)
 
-    @patch('src.database.DatabaseManager._get_connection')
+    @patch('src.services.database.DatabaseManager._get_connection')
     def test_get_by_identifier_returns_none_on_error(self, mock_conn):
         """Tests that get_listing_by_identifier returns None on error."""
         mock_conn.side_effect = sqlite3.Error("Get error")
@@ -370,7 +370,7 @@ class TestGetListingsBySource(TestDatabaseManager):
         self.assertEqual(len(result), 1)
         self.assertIn("source-a-1", result)
 
-    @patch('src.database.DatabaseManager._get_connection')
+    @patch('src.services.database.DatabaseManager._get_connection')
     def test_get_by_source_returns_empty_on_error(self, mock_conn):
         """Tests that get_listings_by_source returns empty dict on error."""
         mock_conn.side_effect = sqlite3.Error("Source query error")
@@ -424,7 +424,7 @@ class TestDeleteListing(TestDatabaseManager):
             self.db_manager.get_listing_by_identifier("keep-3")
         )
 
-    @patch('src.database.DatabaseManager._get_connection')
+    @patch('src.services.database.DatabaseManager._get_connection')
     def test_delete_listing_returns_false_on_error(self, mock_conn):
         """Tests that delete_listing returns False on database error."""
         mock_conn.side_effect = sqlite3.Error("Delete error")
@@ -470,7 +470,7 @@ class TestDeleteListings(TestDatabaseManager):
             self.db_manager.get_listing_by_identifier("multi-del-3")
         )
 
-    @patch('src.database.DatabaseManager._get_connection')
+    @patch('src.services.database.DatabaseManager._get_connection')
     def test_delete_listings_returns_false_on_error(self, mock_conn):
         """Tests that delete_listings returns False on database error."""
         mock_conn.side_effect = sqlite3.Error("Batch delete error")
@@ -512,7 +512,7 @@ class TestCountListings(TestDatabaseManager):
         
         self.assertEqual(self.db_manager.count_listings(), 4)
 
-    @patch('src.database.DatabaseManager._get_connection')
+    @patch('src.services.database.DatabaseManager._get_connection')
     def test_count_returns_zero_on_error(self, mock_conn):
         """Tests that count_listings returns 0 on database error."""
         mock_conn.side_effect = sqlite3.Error("Count error")
@@ -550,7 +550,7 @@ class TestClearAllListings(TestDatabaseManager):
         self.assertTrue(result)
         self.assertEqual(self.db_manager.count_listings(), 0)
 
-    @patch('src.database.DatabaseManager._get_connection')
+    @patch('src.services.database.DatabaseManager._get_connection')
     def test_clear_all_returns_false_on_error(self, mock_conn):
         """Tests that clear_all_listings returns False on error."""
         mock_conn.side_effect = sqlite3.Error("Clear error")
@@ -620,7 +620,7 @@ class TestDeleteOldListings(TestDatabaseManager):
             self.db_manager.get_listing_by_identifier("old-listing")
         )
 
-    @patch('src.database.DatabaseManager._get_connection')
+    @patch('src.services.database.DatabaseManager._get_connection')
     def test_delete_old_returns_zero_on_error(self, mock_conn):
         """Tests that delete_old_listings returns 0 on database error."""
         mock_conn.side_effect = sqlite3.Error("Delete old error")

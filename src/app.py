@@ -7,20 +7,20 @@ import time
 from typing import Set, Dict, Optional, List, Tuple
 
 from src.appliers import WBMApplier
-from src.config import Config
+from src.core.config import Config
 from src.core.constants import (
     Colors,
     LISTING_MAX_AGE_DAYS,
     RATE_LIMIT_SLEEP_SECONDS,
     SUSPENSION_SLEEP_SECONDS,
 )
-from src.filter import ListingFilter
-from src.listing import Listing
-from src.notifier import TelegramNotifier, escape_markdown_v2
-from src.runner import ScraperRunner
+from src.core.listing import Listing
 from src.scrapers import BaseScraper
 from src.services import BoroughResolver
-from src.store import ListingStore
+from src.services.filter import ListingFilter
+from src.services.notifier import TelegramNotifier, escape_markdown_v2
+from src.services.runner import ScraperRunner
+from src.services.store import ListingStore
 
 logger = logging.getLogger(__name__)
 

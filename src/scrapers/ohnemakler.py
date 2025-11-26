@@ -18,7 +18,7 @@ from typing import Dict, Optional, Set, Tuple
 import requests
 from bs4 import BeautifulSoup
 
-from src.listing import Listing
+from src.core.listing import Listing
 from src.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)

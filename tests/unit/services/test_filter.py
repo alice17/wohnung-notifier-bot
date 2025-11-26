@@ -7,9 +7,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from src.config import Config
-from src.filter import ListingFilter
-from src.listing import Listing
+from src.core.config import Config
+from src.services.filter import ListingFilter
+from src.core.listing import Listing
 from src.services.borough_resolver import BoroughResolver
 
 

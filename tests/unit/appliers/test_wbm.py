@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 from src.appliers.base import ApplyStatus
 from src.appliers.wbm import WBMApplier, FormFieldMapper
-from src.listing import Listing
+from src.core.listing import Listing
 
 
 class TestWBMApplier(unittest.TestCase):
