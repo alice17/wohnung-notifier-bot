@@ -16,7 +16,7 @@ class TestWBMApplier(unittest.TestCase):
         """Set up common test fixtures."""
         self.config = {
             "anrede": "Herr",
-            "nachname": "Mustermann",
+            "name": "Mustermann",
             "vorname": "Max",
             "strasse": "Teststr. 1",
             "plz": "10115",
@@ -88,7 +88,7 @@ class TestWBMApplier(unittest.TestCase):
         data = self.applier._build_applicant_data()
         
         self.assertEqual(data["Anrede"], "Herr")
-        self.assertEqual(data["Nachname"], "Mustermann")
+        self.assertEqual(data["Name"], "Mustermann")
         self.assertEqual(data["Vorname"], "Max")
         self.assertEqual(data["Strasse"], "Teststr. 1")
         self.assertEqual(data["PLZ"], "10115")
@@ -380,7 +380,7 @@ class TestWBMRealFormStructure(unittest.TestCase):
         """Set up test fixtures with realistic config."""
         self.config = {
             "anrede": "Herr",
-            "nachname": "Mustermann",
+            "name": "Mustermann",
             "vorname": "Max",
             "strasse": "Teststraße 42",
             "plz": "10115",
@@ -404,7 +404,7 @@ class TestWBMRealFormStructure(unittest.TestCase):
         self.assertEqual(
             form_data["tx_powermail_pi1[field][name]"],
             "Mustermann",
-            "Last name should map to [name] field, not [nachname]"
+            "Last name should map to [name] field"
         )
         self.assertEqual(
             form_data["tx_powermail_pi1[field][vorname]"],

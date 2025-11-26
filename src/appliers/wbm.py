@@ -158,7 +158,7 @@ class WBMApplier(BaseApplier):
         
         return {
             'Anrede': self.config.get('anrede', 'Frau'),
-            'Nachname': self.config.get('nachname'),
+            'Name': self.config.get('name'),
             'Vorname': self.config.get('vorname'),
             'Strasse': self.config.get('strasse', ''),
             'PLZ': self.config.get('plz', ''),
@@ -188,9 +188,9 @@ class WBMApplier(BaseApplier):
         field_mapper = FormFieldMapper(form)
         
         # Map config values to form fields
-        # Note: WBM form uses [name] for last name, not [nachname]
+        # Map config values to form fields
         field_mappings = {
-            'name': self.config.get('nachname'),
+            'name': self.config.get('name'),
             'vorname': self.config.get('vorname'),
             'strasse': self.config.get('strasse', ''),
             'plz': self.config.get('plz', ''),

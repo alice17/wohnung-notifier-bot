@@ -27,7 +27,7 @@
   },
   "wbm_applicant": {
     "anrede": "Frau",
-    "nachname": "Mustermann",
+    "name": "Mustermann",
     "vorname": "Erika",
     "strasse": "Musterstraße 1",
     "plz": "10115",
