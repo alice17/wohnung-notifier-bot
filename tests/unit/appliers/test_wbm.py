@@ -88,7 +88,7 @@ class TestWBMApplier(unittest.TestCase):
         data = self.applier._build_applicant_data()
         
         self.assertEqual(data["Anrede"], "Herr")
-        self.assertEqual(data["Name"], "Mustermann")
+        self.assertEqual(data["Nachname"], "Mustermann")
         self.assertEqual(data["Vorname"], "Max")
         self.assertEqual(data["Strasse"], "Teststr. 1")
         self.assertEqual(data["PLZ"], "10115")
@@ -226,6 +226,52 @@ class TestWBMApplier(unittest.TestCase):
         
         self.assertFalse(self.applier._is_submission_successful(mock_response))
 
+    def test_is_listing_unavailable_returns_true_when_no_offers(self):
+        """Tests _is_listing_unavailable detects German unavailable message."""
+        from bs4 import BeautifulSoup
+        html = """
+        <html><body>
+            <div>Leider haben wir derzeit keine verfügbaren Angebote</div>
+        </body></html>
+        """
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        self.assertTrue(self.applier._is_listing_unavailable(soup))
+
+    def test_is_listing_unavailable_returns_false_for_available_listing(self):
+        """Tests _is_listing_unavailable returns False for active listings."""
+        from bs4 import BeautifulSoup
+        html = """
+        <html><body>
+            <div>Wohnung in Berlin Mitte</div>
+            <div>Besichtigungstermin anfragen</div>
+        </body></html>
+        """
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        self.assertFalse(self.applier._is_listing_unavailable(soup))
+
+    @patch('src.appliers.wbm.requests.get')
+    def test_apply_returns_listing_unavailable_when_no_offers(self, mock_get):
+        """Tests apply returns LISTING_UNAVAILABLE when listing is gone."""
+        mock_response = Mock()
+        mock_response.content = b"""
+        <html><body>
+            <div>Leider haben wir derzeit keine verfuegbaren Angebote</div>
+            <form><input name="tx_powermail_pi1[field]"></form>
+        </body></html>
+        """
+        mock_get.return_value = mock_response
+        
+        listing = Listing(
+            source="wbm",
+            link="https://www.wbm.de/listing/123"
+        )
+        result = self.applier.apply(listing)
+        
+        self.assertEqual(result.status, ApplyStatus.LISTING_UNAVAILABLE)
+        self.assertIn("no longer available", result.message.lower())
+
 
 class TestFormFieldMapper(unittest.TestCase):
     """Test suite for FormFieldMapper helper class."""
@@ -277,6 +323,206 @@ class TestFormFieldMapper(unittest.TestCase):
         result = mapper.find_field_name("e_mail")
         
         self.assertEqual(result, "tx_powermail_pi1[field][e_mail]")
+
+
+class TestWBMRealFormStructure(unittest.TestCase):
+    """
+    Test suite using real WBM form structure.
+    
+    Based on actual form from:
+    https://www.wbm.de/wohnungen-berlin/angebote/details/?tx_openimmo_immobilie[immobilie]=50-518512/4/82
+    """
+
+    # Real WBM form HTML captured from Spandau 2-Zimmer listing
+    REAL_FORM_HTML = '''
+    <form action="https://www.wbm.de/wohnungen-berlin/angebote/details/?tx_powermail_pi1%5Baction%5D=checkCreate&amp;tx_powermail_pi1%5Bcontroller%5D=Form&amp;cHash=29eef4e3e5da07075c9425623247866f#c722" method="post">
+        <input type="hidden" name="tx_powermail_pi1[__referrer][@extension]" value="Powermail">
+        <input type="hidden" name="tx_powermail_pi1[__referrer][@controller]" value="Form">
+        <input type="hidden" name="tx_powermail_pi1[__referrer][@action]" value="form">
+        <input type="hidden" name="tx_powermail_pi1[__referrer][arguments]" value="YTowOnt9ef52e62da51d49537d9b67d61f39b458b8f18280">
+        <input type="hidden" name="tx_powermail_pi1[__referrer][@request]" value='{"@extension":"Powermail","@controller":"Form","@action":"form"}8a5cf3532bf879a9b29d031470302d1b74c43f98'>
+        <input type="hidden" name="tx_powermail_pi1[__trustedProperties]" value='{"field":{"objekt":1,"wbsvorhanden":1}}12c8ddf50560cc63d41eb4dca707a42154e5a3d4'>
+        <input type="hidden" name="tx_powermail_pi1[field][objekt]" value="50-518512/4/82" id="powermail_field_objekt">
+        <input type="radio" name="tx_powermail_pi1[field][wbsvorhanden]" value="1" id="powermail_field_wbsvorhanden_1">
+        <input type="radio" name="tx_powermail_pi1[field][wbsvorhanden]" value="0" id="powermail_field_wbsvorhanden_2" checked>
+        <input type="date" name="tx_powermail_pi1[field][wbsgueltigbis]" id="powermail_field_wbsgueltigbis">
+        <select name="tx_powermail_pi1[field][wbszimmeranzahl]" id="powermail_field_wbszimmeranzahl">
+            <option value="1">1</option>
+            <option value="2">2</option>
+        </select>
+        <select name="tx_powermail_pi1[field][einkommensgrenzenacheinkommensbescheinigung9]" id="powermail_field_einkommensgrenzenacheinkommensbescheinigung9">
+            <option value="100">WBS 100</option>
+            <option value="140">WBS 140</option>
+        </select>
+        <input type="hidden" name="tx_powermail_pi1[field][wbsmitbesonderemwohnbedarf]" value="">
+        <input type="checkbox" name="tx_powermail_pi1[field][wbsmitbesonderemwohnbedarf][]" value="1" id="powermail_field_wbsmitbesonderemwohnbedarf_1">
+        <select name="tx_powermail_pi1[field][anrede]" id="powermail_field_anrede">
+            <option value="Frau" selected>Frau</option>
+            <option value="Herr">Herr</option>
+            <option value="Offen">Offen</option>
+        </select>
+        <input type="text" name="tx_powermail_pi1[field][name]" id="powermail_field_name">
+        <input type="text" name="tx_powermail_pi1[field][vorname]" id="powermail_field_vorname">
+        <input type="text" name="tx_powermail_pi1[field][strasse]" id="powermail_field_strasse">
+        <input type="text" name="tx_powermail_pi1[field][plz]" id="powermail_field_plz">
+        <input type="text" name="tx_powermail_pi1[field][ort]" id="powermail_field_ort">
+        <input type="text" name="tx_powermail_pi1[field][e_mail]" id="powermail_field_e_mail">
+        <input type="text" name="tx_powermail_pi1[field][telefon]" id="powermail_field_telefon">
+        <input type="hidden" name="tx_powermail_pi1[field][datenschutzhinweis]" value="">
+        <input type="checkbox" name="tx_powermail_pi1[field][datenschutzhinweis][]" value="1" id="powermail_field_datenschutzhinweis_1">
+        <input type="hidden" name="tx_powermail_pi1[mail][form]" value="2">
+        <input type="text" name="tx_powermail_pi1[field][__hp]" id="powermail_hp_2">
+        <button type="submit">Anfrage absenden</button>
+    </form>
+    '''
+
+    def setUp(self):
+        """Set up test fixtures with realistic config."""
+        self.config = {
+            "anrede": "Herr",
+            "nachname": "Mustermann",
+            "vorname": "Max",
+            "strasse": "Teststraße 42",
+            "plz": "10115",
+            "ort": "Berlin",
+            "email": "max.mustermann@example.com",
+            "telefon": "030123456789",
+            "wbs": "nein"
+        }
+        self.applier = WBMApplier(self.config)
+
+    def test_prepare_form_data_with_real_form_structure(self):
+        """Tests _prepare_form_data correctly maps to real WBM form fields."""
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(self.REAL_FORM_HTML, 'html.parser')
+        form = soup.find('form')
+        
+        applicant_data = self.applier._build_applicant_data()
+        form_data = self.applier._prepare_form_data(form, applicant_data)
+        
+        # Verify contact fields are correctly mapped
+        self.assertEqual(
+            form_data["tx_powermail_pi1[field][name]"],
+            "Mustermann",
+            "Last name should map to [name] field, not [nachname]"
+        )
+        self.assertEqual(
+            form_data["tx_powermail_pi1[field][vorname]"],
+            "Max"
+        )
+        self.assertEqual(
+            form_data["tx_powermail_pi1[field][strasse]"],
+            "Teststraße 42"
+        )
+        self.assertEqual(
+            form_data["tx_powermail_pi1[field][plz]"],
+            "10115"
+        )
+        self.assertEqual(
+            form_data["tx_powermail_pi1[field][ort]"],
+            "Berlin"
+        )
+        self.assertEqual(
+            form_data["tx_powermail_pi1[field][e_mail]"],
+            "max.mustermann@example.com"
+        )
+        self.assertEqual(
+            form_data["tx_powermail_pi1[field][telefon]"],
+            "030123456789"
+        )
+
+    def test_prepare_form_data_includes_anrede(self):
+        """Tests _prepare_form_data sets Anrede dropdown correctly."""
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(self.REAL_FORM_HTML, 'html.parser')
+        form = soup.find('form')
+        
+        applicant_data = self.applier._build_applicant_data()
+        form_data = self.applier._prepare_form_data(form, applicant_data)
+        
+        self.assertEqual(
+            form_data["tx_powermail_pi1[field][anrede]"],
+            "Herr"
+        )
+
+    def test_prepare_form_data_sets_wbs_no(self):
+        """Tests WBS vorhanden is set to '0' when wbs=nein."""
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(self.REAL_FORM_HTML, 'html.parser')
+        form = soup.find('form')
+        
+        applicant_data = self.applier._build_applicant_data()
+        form_data = self.applier._prepare_form_data(form, applicant_data)
+        
+        self.assertEqual(
+            form_data["tx_powermail_pi1[field][wbsvorhanden]"],
+            "0"
+        )
+
+    def test_prepare_form_data_sets_wbs_yes(self):
+        """Tests WBS vorhanden is set to '1' when wbs=ja."""
+        config_with_wbs = self.config.copy()
+        config_with_wbs["wbs"] = "ja"
+        applier = WBMApplier(config_with_wbs)
+        
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(self.REAL_FORM_HTML, 'html.parser')
+        form = soup.find('form')
+        
+        applicant_data = applier._build_applicant_data()
+        form_data = applier._prepare_form_data(form, applicant_data)
+        
+        self.assertEqual(
+            form_data["tx_powermail_pi1[field][wbsvorhanden]"],
+            "1"
+        )
+
+    def test_prepare_form_data_includes_privacy_checkbox(self):
+        """Tests Datenschutzhinweis checkbox is included."""
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(self.REAL_FORM_HTML, 'html.parser')
+        form = soup.find('form')
+        
+        applicant_data = self.applier._build_applicant_data()
+        form_data = self.applier._prepare_form_data(form, applicant_data)
+        
+        self.assertIn(
+            "tx_powermail_pi1[field][datenschutzhinweis][]",
+            form_data
+        )
+
+    def test_prepare_form_data_preserves_hidden_fields(self):
+        """Tests that hidden form fields are preserved."""
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(self.REAL_FORM_HTML, 'html.parser')
+        form = soup.find('form')
+        
+        applicant_data = self.applier._build_applicant_data()
+        form_data = self.applier._prepare_form_data(form, applicant_data)
+        
+        # Verify hidden fields from form are preserved
+        self.assertEqual(
+            form_data["tx_powermail_pi1[field][objekt]"],
+            "50-518512/4/82"
+        )
+        self.assertEqual(
+            form_data["tx_powermail_pi1[__referrer][@extension]"],
+            "Powermail"
+        )
+
+    def test_get_submit_url_from_real_form(self):
+        """Tests submit URL extraction from real form."""
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(self.REAL_FORM_HTML, 'html.parser')
+        form = soup.find('form')
+        
+        submit_url = self.applier._get_submit_url(
+            form,
+            "https://www.wbm.de/wohnungen-berlin/angebote/details/"
+        )
+        
+        self.assertIn("tx_powermail_pi1", submit_url)
+        self.assertIn("checkCreate", submit_url)
 
 
 if __name__ == '__main__':

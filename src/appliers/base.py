@@ -19,6 +19,7 @@ class ApplyStatus(Enum):
     SKIPPED = "skipped"
     FORM_NOT_FOUND = "form_not_found"
     MISSING_CONFIG = "missing_config"
+    LISTING_UNAVAILABLE = "listing_unavailable"
 
 
 @dataclass

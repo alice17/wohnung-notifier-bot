@@ -11,7 +11,7 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup, Tag
 
-from src.appliers.base import BaseApplier, ApplyResult, ApplyStatus
+from src.appliers.base import ApplyResult, ApplyStatus, BaseApplier
 from src.core.constants import REQUEST_TIMEOUT_SECONDS, Colors
 from src.core.listing import Listing
 from src.services.notifier import escape_markdown_v2
@@ -69,6 +69,15 @@ class WBMApplier(BaseApplier):
 
         try:
             form, soup = self._fetch_and_find_form(listing_url)
+            
+            # Check if the listing is no longer available
+            if self._is_listing_unavailable(soup):
+                logger.warning(f"Listing no longer available: {listing_url}")
+                return ApplyResult(
+                    status=ApplyStatus.LISTING_UNAVAILABLE,
+                    message="Listing is no longer available on WBM website"
+                )
+            
             if not form:
                 return ApplyResult(
                     status=ApplyStatus.FORM_NOT_FOUND,
@@ -117,6 +126,27 @@ class WBMApplier(BaseApplier):
         logger.error(f"Could not find application form on {url}")
         return None, soup
 
+    def _is_listing_unavailable(self, soup: BeautifulSoup) -> bool:
+        """
+        Check if the listing page indicates the listing is no longer available.
+        
+        WBM shows "Leider haben wir derzeit keine verfügbaren Angebote" when
+        the listing has been removed or is no longer active.
+        
+        Args:
+            soup: The BeautifulSoup object of the page.
+            
+        Returns:
+            True if the listing is unavailable, False otherwise.
+        """
+        unavailable_indicators = [
+            "keine verfügbaren Angebote",
+            "leider haben wir derzeit keine",
+            "no available offers",
+        ]
+        page_text = soup.get_text().lower()
+        return any(indicator.lower() in page_text for indicator in unavailable_indicators)
+
     def _build_applicant_data(self) -> Dict[str, Any]:
         """
         Build human-readable applicant data dictionary from config.
@@ -128,7 +158,7 @@ class WBMApplier(BaseApplier):
         
         return {
             'Anrede': self.config.get('anrede', 'Frau'),
-            'Name': self.config.get('nachname'),
+            'Nachname': self.config.get('nachname'),
             'Vorname': self.config.get('vorname'),
             'Strasse': self.config.get('strasse', ''),
             'PLZ': self.config.get('plz', ''),
@@ -158,8 +188,9 @@ class WBMApplier(BaseApplier):
         field_mapper = FormFieldMapper(form)
         
         # Map config values to form fields
+        # Note: WBM form uses [name] for last name, not [nachname]
         field_mappings = {
-            'nachname': self.config.get('nachname'),
+            'name': self.config.get('nachname'),
             'vorname': self.config.get('vorname'),
             'strasse': self.config.get('strasse', ''),
             'plz': self.config.get('plz', ''),
