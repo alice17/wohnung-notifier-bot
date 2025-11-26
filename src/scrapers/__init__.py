@@ -2,7 +2,6 @@
 This package contains all the scraper implementations.
 """
 from .base import BaseScraper
-from .degewo import DegewoScraper
 from .deutschewohnen import DeutscheWohnenScraper
 from .immowelt import ImmoweltScraper
 from .inberlinwohnen import InBerlinWohnenScraper
@@ -16,5 +15,4 @@ SCRAPER_CLASSES = {
     "kleinanzeigen": KleinanzeigenScraper,
     "ohnemakler": OhneMaklerScraper,
     "deutschewohnen": DeutscheWohnenScraper,
-    "degewo": DegewoScraper,
 }
