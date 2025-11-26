@@ -55,6 +55,29 @@ class DatabaseManager:
             if conn:
                 conn.close()
 
+    def _row_to_listing(self, row: sqlite3.Row) -> Listing:
+        """
+        Converts a database row to a Listing object.
+        
+        Args:
+            row: A sqlite3.Row containing listing data.
+            
+        Returns:
+            A Listing object populated with data from the row.
+        """
+        return Listing(
+            source=row['source'],
+            address=row['address'],
+            borough=row['borough'],
+            sqm=row['sqm'],
+            price_cold=row['price_cold'],
+            price_total=row['price_total'],
+            rooms=row['rooms'],
+            wbs=row['wbs'],
+            link=row['link'],
+            identifier=row['identifier']
+        )
+
     def _initialize_database(self) -> None:
         """
         Creates the listings table if it doesn't exist.
@@ -198,21 +221,10 @@ class DatabaseManager:
                 cursor.execute(query)
                 rows = cursor.fetchall()
                 
-                listings = {}
-                for row in rows:
-                    listing = Listing(
-                        source=row['source'],
-                        address=row['address'],
-                        borough=row['borough'],
-                        sqm=row['sqm'],
-                        price_cold=row['price_cold'],
-                        price_total=row['price_total'],
-                        rooms=row['rooms'],
-                        wbs=row['wbs'],
-                        link=row['link'],
-                        identifier=row['identifier']
-                    )
-                    listings[listing.identifier] = listing
+                listings = {
+                    row['identifier']: self._row_to_listing(row)
+                    for row in rows
+                }
                 
                 logger.info(f"Loaded {len(listings)} listings from database")
                 return listings
@@ -246,20 +258,7 @@ class DatabaseManager:
                 cursor.execute(query, (identifier,))
                 row = cursor.fetchone()
                 
-                if row:
-                    return Listing(
-                        source=row['source'],
-                        address=row['address'],
-                        borough=row['borough'],
-                        sqm=row['sqm'],
-                        price_cold=row['price_cold'],
-                        price_total=row['price_total'],
-                        rooms=row['rooms'],
-                        wbs=row['wbs'],
-                        link=row['link'],
-                        identifier=row['identifier']
-                    )
-                return None
+                return self._row_to_listing(row) if row else None
         except sqlite3.Error as e:
             logger.error(f"Failed to get listing {identifier}: {e}")
             return None
@@ -287,23 +286,10 @@ class DatabaseManager:
                 cursor.execute(query, (source,))
                 rows = cursor.fetchall()
                 
-                listings = {}
-                for row in rows:
-                    listing = Listing(
-                        source=row['source'],
-                        address=row['address'],
-                        borough=row['borough'],
-                        sqm=row['sqm'],
-                        price_cold=row['price_cold'],
-                        price_total=row['price_total'],
-                        rooms=row['rooms'],
-                        wbs=row['wbs'],
-                        link=row['link'],
-                        identifier=row['identifier']
-                    )
-                    listings[listing.identifier] = listing
-                
-                return listings
+                return {
+                    row['identifier']: self._row_to_listing(row)
+                    for row in rows
+                }
         except sqlite3.Error as e:
             logger.error(f"Failed to get listings for source {source}: {e}")
             return {}
