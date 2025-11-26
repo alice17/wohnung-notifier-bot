@@ -20,11 +20,17 @@
     },
     "ohnemakler": {
       "enabled": true
+    },
+    "deutschewohnen": {
+      "enabled": true
+    },
+    "degewo": {
+      "enabled": true
     }
   },
   "wbm_applicant": {
     "anrede": "Frau",
-    "name": "Mustermann",
+    "nachname": "Mustermann",
     "vorname": "Erika",
     "strasse": "Musterstraße 1",
     "plz": "10115",
