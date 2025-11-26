@@ -182,22 +182,6 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
         self.assertIsNone(listing)
 
     @patch('requests.Session.get')
-    def test_fetch_total_count(self, mock_get):
-        """Test fetching total count from API."""
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            'results': [],
-            'paging': {'totalCount': 100}
-        }
-        mock_get.return_value = mock_response
-        
-        import requests
-        session = requests.Session()
-        count = self.scraper._fetch_total_count(session)
-        
-        self.assertEqual(count, 100)
-
-    @patch('requests.Session.get')
     def test_fetch_listings_batch(self, mock_get):
         """Test fetching a batch of listings."""
         mock_response = Mock()

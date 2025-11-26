@@ -23,6 +23,9 @@
     },
     "deutschewohnen": {
       "enabled": true
+    },
+    "vonovia": {
+      "enabled": true
     }
   },
   "wbm_applicant": {
