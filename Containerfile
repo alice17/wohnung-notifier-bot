@@ -14,8 +14,15 @@ COPY src/ /app/src/
 COPY data/ /app/data/
 COPY main.py .
 
-# Note: settings.json must be mounted as a volume at runtime
-# Do not copy settings.json into the image for security and flexibility
+# Runtime volumes (must be mounted):
+#   - settings.json: Configuration file with Telegram credentials and filters
+#   - listings.db:   SQLite database for persisting known listings
+#
+# Example run command:
+#   podman run -d --name wohnung-bot \
+#     -v ./settings.json:/app/settings.json:z \
+#     -v ./listings.db:/app/listings.db:z \
+#     wohnung-scraper
 
 # Run the application
 CMD ["python", "main.py"]
