@@ -22,6 +22,24 @@ class DatabaseManager:
     apartment listings, with automatic schema creation and connection management.
     """
 
+    _UPSERT_QUERY = """
+    INSERT INTO listings 
+    (identifier, source, address, borough, sqm, price_cold, 
+     price_total, rooms, wbs, link, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ON CONFLICT(identifier) DO UPDATE SET
+        source = excluded.source,
+        address = excluded.address,
+        borough = excluded.borough,
+        sqm = excluded.sqm,
+        price_cold = excluded.price_cold,
+        price_total = excluded.price_total,
+        rooms = excluded.rooms,
+        wbs = excluded.wbs,
+        link = excluded.link,
+        updated_at = CURRENT_TIMESTAMP
+    """
+
     def __init__(self, db_path: str = "listings.db"):
         """
         Initialize the DatabaseManager with a database path.
@@ -122,8 +140,10 @@ class DatabaseManager:
         """
         Saves or updates a single listing in the database.
         
-        Uses INSERT OR REPLACE to handle both new and existing listings,
-        updating the timestamp on each save.
+        Uses INSERT with ON CONFLICT to handle both new and existing listings.
+        For new listings, both created_at and updated_at are set to current time.
+        For existing listings, only updated_at is updated while created_at is
+        preserved.
         
         Args:
             listing: The Listing object to save.
@@ -131,17 +151,10 @@ class DatabaseManager:
         Returns:
             True if the operation was successful, False otherwise.
         """
-        query = """
-        INSERT OR REPLACE INTO listings 
-        (identifier, source, address, borough, sqm, price_cold, 
-         price_total, rooms, wbs, link, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        """
-        
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(query, (
+                cursor.execute(self._UPSERT_QUERY, (
                     listing.identifier,
                     listing.source,
                     listing.address,
@@ -163,6 +176,11 @@ class DatabaseManager:
         """
         Saves multiple listings in a single transaction for efficiency.
         
+        Uses INSERT with ON CONFLICT to handle both new and existing listings.
+        For new listings, both created_at and updated_at are set to current time.
+        For existing listings, only updated_at is updated while created_at is
+        preserved.
+        
         Args:
             listings: Dictionary mapping identifiers to Listing objects.
             
@@ -171,19 +189,12 @@ class DatabaseManager:
         """
         if not listings:
             return True
-            
-        query = """
-        INSERT OR REPLACE INTO listings 
-        (identifier, source, address, borough, sqm, price_cold, 
-         price_total, rooms, wbs, link, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        """
         
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 for listing in listings.values():
-                    cursor.execute(query, (
+                    cursor.execute(self._UPSERT_QUERY, (
                         listing.identifier,
                         listing.source,
                         listing.address,
