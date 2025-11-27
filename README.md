@@ -2,6 +2,7 @@
 
 ![Tests](https://github.com/alice17/wohnung-notifier-bot/actions/workflows/test.yml/badge.svg)
 ![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/alice17/a61e9c704ca8a2e3d5a33aa58a89e625/raw/coverage-badge.json)
+![Berlin](https://img.shields.io/badge/🏠-Berlin-black)
 
 A Python script that monitors multiple German real estate websites (including `inberlinwohnen.de`, `immowelt.de`, `kleinanzeigen.de`, `ohne-makler.net`, `deutsche-wohnen.com`, and `vonovia.de`) for new apartment listings, filters them based on your criteria, and sends instant notifications via Telegram.
 
