@@ -93,7 +93,6 @@ def main():
             sys.exit(1)
 
         appliers = load_appliers(config)
-        logger.info(f"Loaded {len(appliers)} applier(s)")
 
         notifier = TelegramNotifier(config.telegram)
         store = ListingStore()
