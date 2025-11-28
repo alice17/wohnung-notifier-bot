@@ -76,6 +76,11 @@ class Config:
         return scraper_settings.get('suspension_end_hour', 7)
 
     @property
-    def wbm_config(self) -> Dict[str, Any]:
-        """Returns the WBM applicant configuration."""
-        return self.settings.get('wbm_applicant', {})
+    def appliers(self) -> Dict[str, Any]:
+        """
+        Returns the appliers settings.
+
+        Returns:
+            Dictionary mapping applier names to their configuration.
+        """
+        return self.settings.get('appliers', {})

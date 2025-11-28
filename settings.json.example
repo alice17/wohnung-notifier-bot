@@ -28,16 +28,19 @@
       "enabled": true
     }
   },
-  "wbm_applicant": {
-    "anrede": "Frau",
-    "name": "Mustermann",
-    "vorname": "Erika",
-    "strasse": "Musterstraße 1",
-    "plz": "10115",
-    "ort": "Berlin",
-    "email": "erika.mustermann@example.com",
-    "telefon": "0123456789",
-    "wbs": "nein"
+  "appliers": {
+    "wbm": {
+      "enabled": true,
+      "anrede": "Frau",
+      "name": "Mustermann",
+      "vorname": "Erika",
+      "strasse": "Musterstraße 1",
+      "plz": "10115",
+      "ort": "Berlin",
+      "email": "erika.mustermann@example.com",
+      "telefon": "0123456789",
+      "wbs": "nein"
+    }
   },
   "filters": {
     "enabled": true,

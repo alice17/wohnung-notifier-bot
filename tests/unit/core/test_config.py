@@ -317,6 +317,34 @@ class TestConfig(unittest.TestCase):
             Config(config_data)
         self.assertIn("Chat ID", str(context.exception))
 
+    def test_appliers_property(self):
+        """Tests appliers property returns correct dictionary."""
+        config_data = {
+            "telegram": {"bot_token": "token", "chat_id": "123"},
+            "scrapers": {},
+            "appliers": {
+                "wbm": {
+                    "enabled": True,
+                    "name": "Test User",
+                    "email": "test@example.com"
+                }
+            }
+        }
+        config = Config(config_data)
+        appliers = config.appliers
+        self.assertIn("wbm", appliers)
+        self.assertTrue(appliers["wbm"]["enabled"])
+        self.assertEqual(appliers["wbm"]["name"], "Test User")
+
+    def test_appliers_property_default_empty(self):
+        """Tests appliers property returns empty dict when not configured."""
+        config_data = {
+            "telegram": {"bot_token": "token", "chat_id": "123"},
+            "scrapers": {}
+        }
+        config = Config(config_data)
+        self.assertEqual(config.appliers, {})
+
 
 if __name__ == '__main__':
     unittest.main()

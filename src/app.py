@@ -6,18 +6,17 @@ import logging
 import time
 from typing import Set, Dict, Optional, List, Tuple
 
-from src.appliers import WBMApplier
+from src.appliers import BaseApplier
 from src.core.config import Config
 from src.core.constants import (
-    Colors,
     LISTING_MAX_AGE_DAYS,
-    RATE_LIMIT_SLEEP_SECONDS,
     SUSPENSION_SLEEP_SECONDS,
 )
 from src.core.listing import Listing
 from src.scrapers import BaseScraper
 from src.services import BoroughResolver
 from src.services.filter import ListingFilter
+from src.services.listing_processor import ListingProcessor
 from src.services.notifier import TelegramNotifier, escape_markdown_v2
 from src.services.runner import ScraperRunner
 from src.services.store import ListingStore
@@ -34,6 +33,7 @@ class App:
         scrapers: List[BaseScraper],
         store: ListingStore,
         notifier: TelegramNotifier,
+        appliers: Optional[List[BaseApplier]] = None,
     ):
         """
         Initialize the App with configuration and components.
@@ -43,16 +43,17 @@ class App:
             scrapers: List of scraper instances to run.
             store: Store instance for persisting listings.
             notifier: Notifier instance for sending alerts.
+            appliers: Optional list of applier instances for auto-apply.
         """
         self.config = config
         self.scrapers = scrapers
         self.store = store
         self.notifier = notifier
+        self.appliers = appliers or []
         self.scraper_runner = ScraperRunner(scrapers)
         self.known_listings: Dict[str, Listing] = {}
         self.borough_resolver: Optional[BoroughResolver] = None
-        self.listing_filter: Optional[ListingFilter] = None
-        self.wbm_applier = WBMApplier(config.wbm_config)
+        self.listing_processor: Optional[ListingProcessor] = None
 
     def setup(self) -> None:
         """Initializes the application state by loading data and setting up filters."""
@@ -63,7 +64,13 @@ class App:
             self._initialize_baseline()
 
         self.borough_resolver = BoroughResolver()
-        self.listing_filter = ListingFilter(self.config, self.borough_resolver)
+        listing_filter = ListingFilter(self.config, self.borough_resolver)
+
+        self.listing_processor = ListingProcessor(
+            notifier=self.notifier,
+            listing_filter=listing_filter,
+            appliers=self.appliers,
+        )
 
         if self.borough_resolver.is_loaded():
             for scraper in self.scrapers:
@@ -231,58 +238,11 @@ class App:
         if not new_listings:
             return False
 
-        self._process_new_listings(new_listings)
+        if self.listing_processor:
+            self.listing_processor.process_new_listings(new_listings)
+
         updated_known_listings.update(new_listings)
-
         return True
-
-    def _process_new_listings(self, new_listings: Dict[str, Listing]) -> None:
-        """
-        Processes and notifies about new listings.
-
-        Args:
-            new_listings: Dictionary of new listings to process.
-        """
-        logger.info(f"{Colors.GREEN}Found {len(new_listings)} new listing(s)!{Colors.RESET}")
-        for listing in new_listings.values():
-            logger.info(f"Processing new listing: {listing}")
-            if not self._is_listing_filtered(listing):
-                message = self.notifier.format_listing_message(listing)
-                self.notifier.send_message(message)
-                
-                # Check for WBM auto-apply
-                self._try_auto_apply(listing)
-                    
-                time.sleep(RATE_LIMIT_SLEEP_SECONDS)
-
-    def _try_auto_apply(self, listing: Listing) -> None:
-        """
-        Attempts to auto-apply for a listing using available appliers.
-
-        Args:
-            listing: The listing to apply for.
-        """
-        if self.wbm_applier.can_apply(listing):
-            result = self.wbm_applier.apply(listing)
-            if result.is_success and result.applicant_data:
-                telegram_message = self.wbm_applier.format_success_message(
-                    listing.link, result.applicant_data
-                )
-                self.notifier.send_message(telegram_message)
-
-    def _is_listing_filtered(self, listing: Listing) -> bool:
-        """
-        Checks if a listing should be filtered out based on criteria.
-
-        Args:
-            listing: The listing to check.
-
-        Returns:
-            True if the listing should be filtered out, False otherwise.
-        """
-        if self.listing_filter:
-            return self.listing_filter.is_filtered(listing)
-        return False
 
     def _is_suspended_time(self) -> bool:
         """
