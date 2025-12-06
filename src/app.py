@@ -170,62 +170,55 @@ class App:
         if not any(current_listings_by_scraper.values()) and self.known_listings:
             logger.info("Current check returned no listings.")
 
-        updated_known_listings = self.known_listings.copy()
-        total_changes = False
+        all_new_listings: Dict[str, Listing] = {}
 
         # Process scrapers that ran successfully
-        for scraper_name, current_listings in current_listings_by_scraper.items():
-            scraper_changed = self._process_scraper_results(
-                scraper_name, current_listings, updated_known_listings
-            )
-            if scraper_changed:
-                total_changes = True
+        for _, current_listings in current_listings_by_scraper.items():
+            new_listings = self._process_scraper_results(current_listings)
+            all_new_listings.update(new_listings)
 
         if failed_scrapers:
             logger.warning(f"Scrapers {', '.join(failed_scrapers)} failed. Their listings will be preserved.")
 
-        self._save_changes_if_needed(updated_known_listings, total_changes)
+        self._save_new_listings(all_new_listings)
 
-    def _save_changes_if_needed(
-        self, updated_known_listings: Dict[str, Listing], changes_detected: bool
-    ) -> None:
+    def _save_new_listings(self, new_listings: Dict[str, Listing]) -> None:
         """
-        Saves the updated listings to the store if changes were detected.
+        Saves only the new listings to the store and updates in-memory cache.
+        
+        Only new listings are saved to avoid refreshing updated_at timestamps
+        for existing listings. This ensures that listings no longer found by
+        scrapers will be automatically cleaned up after LISTING_MAX_AGE_DAYS.
 
         Args:
-            updated_known_listings: The new state of known listings.
-            changes_detected: Whether any changes were detected.
+            new_listings: Dictionary of newly discovered listings to save.
         """
-        if changes_detected:
-            self.known_listings = updated_known_listings
-            self.store.save(self.known_listings)
-            logger.info("Changes detected and saved.")
+        if new_listings:
+            self.known_listings.update(new_listings)
+            self.store.save(new_listings)
+            logger.info(f"Saved {len(new_listings)} new listing(s).")
         else:
-            logger.info("No changes detected.")
+            logger.info("No new listings found.")
 
     def _process_scraper_results(
         self,
-        scraper_name: str,
         current_listings: Dict[str, Listing],
-        updated_known_listings: Dict[str, Listing],
-    ) -> bool:
+    ) -> Dict[str, Listing]:
         """
-        Processes listings from a single scraper, updating known listings.
+        Processes listings from a single scraper and returns new listings.
         
         Note: Scrapers are optimized for live updates and use early termination,
         returning only NEW listings (not all current listings). Therefore, we
         only add new listings and do NOT remove listings based on scraper results.
 
         Args:
-            scraper_name: Name of the scraper being processed.
             current_listings: Dictionary of NEW listings found by the scraper.
-            updated_known_listings: Dictionary of known listings to be updated (in-place).
 
         Returns:
-            True if new listings were added, False otherwise.
+            Dictionary of new listings that weren't previously known.
         """
         if not current_listings:
-            return False
+            return {}
 
         # Double-check: filter out any listings we already know about
         # (scrapers should already do this, but this is a safety check)
@@ -235,14 +228,10 @@ class App:
             if listing_id not in self.known_listings
         }
 
-        if not new_listings:
-            return False
-
-        if self.listing_processor:
+        if new_listings and self.listing_processor:
             self.listing_processor.process_new_listings(new_listings)
 
-        updated_known_listings.update(new_listings)
-        return True
+        return new_listings
 
     def _is_suspended_time(self) -> bool:
         """
