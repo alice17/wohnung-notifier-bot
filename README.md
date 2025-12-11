@@ -16,7 +16,7 @@ A Python script that monitors multiple German real estate websites (including `i
 -   **Telegram Notifications:** Get instant alerts delivered to your phone, giving you a head-start on your application.
 -   **Resilient:** Stores known listings in a SQLite database (`listings.db`) for reliable persistence across restarts.
 -   **Efficient Storage:** Database-backed storage with proper indexing for fast lookups and better performance with large datasets.
--   **Auto-Apply:** Automatically submit applications to supported housing providers (WBM, Gewobag, HOWOGE) when new matching listings are found.
+-   **Auto-Apply:** Automatically submit applications to supported housing providers (for now only WBM) when new matching listings are found.
 -   **Containerized:** Includes a `Containerfile` for easy deployment with Docker or Podman.
 
 -----
