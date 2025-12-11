@@ -1,6 +1,7 @@
 """
 This module is the main entry point for the application.
 """
+import argparse
 import logging
 import sys
 import json
@@ -76,8 +77,28 @@ def load_appliers(config: Config) -> List[BaseApplier]:
     return appliers
 
 
+def parse_arguments() -> argparse.Namespace:
+    """
+    Parse command-line arguments.
+
+    Returns:
+        Parsed arguments namespace.
+    """
+    parser = argparse.ArgumentParser(
+        description="Apartment listing scraper and notifier."
+    )
+    parser.add_argument(
+        "--cron",
+        action="store_true",
+        help="Run once and exit immediately (for cron job scheduling).",
+    )
+    return parser.parse_args()
+
+
 def main():
     """Initializes and runs the monitoring application."""
+    args = parse_arguments()
+
     try:
         config = Config.from_file('settings.json')
         logger.info(
@@ -98,7 +119,7 @@ def main():
         store = ListingStore()
 
         app = App(config, scrapers, store, notifier, appliers=appliers)
-        app.run()
+        app.run(cron_mode=args.cron)
 
     except (ValueError, FileNotFoundError) as e:
         logger.fatal(f"Application failed to start: {e}")

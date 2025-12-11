@@ -78,10 +78,18 @@ class App:
 
         logger.info("Application setup complete.")
 
-    def run(self) -> None:
-        """Starts the main monitoring loop."""
+    def run(self, cron_mode: bool = False) -> None:
+        """
+        Starts the main monitoring loop.
+
+        Args:
+            cron_mode: If True, run once and exit immediately (no sleep, no loop).
+        """
         self.setup()
         logger.info("Monitoring started.")
+
+        if cron_mode:
+            logger.info("Running in cron mode (single execution).")
 
         while True:
             if self._handle_suspension():
@@ -91,6 +99,10 @@ class App:
                 self._check_for_updates()
             except Exception as e:
                 self._handle_unexpected_error(e)
+
+            if cron_mode:
+                logger.info("Cron mode execution complete. Exiting.")
+                break
 
             logger.info(f"Sleeping for {self.config.poll_interval} seconds...")
             time.sleep(self.config.poll_interval)
