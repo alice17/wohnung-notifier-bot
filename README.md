@@ -16,6 +16,7 @@ A Python script that monitors multiple German real estate websites (including `i
 -   **Telegram Notifications:** Get instant alerts delivered to your phone, giving you a head-start on your application.
 -   **Resilient:** Stores known listings in a SQLite database (`listings.db`) for reliable persistence across restarts.
 -   **Efficient Storage:** Database-backed storage with proper indexing for fast lookups and better performance with large datasets.
+-   **Auto-Apply:** Automatically submit applications to supported housing providers (WBM, Gewobag, HOWOGE) when new matching listings are found.
 -   **Containerized:** Includes a `Containerfile` for easy deployment with Docker or Podman.
 
 -----
@@ -79,6 +80,86 @@ You must create a `settings.json` file from the `settings.json.example`. This is
     -   `enabled`: Set to `true` to enable filtering, `false` to get notified for *all* new listings.
     -   `min` / `max`: Set the desired range for price, square meters, and rooms. Use `null` if you don't want to set a lower or upper limit.
     -   `wbs` / `boroughs`: The `allowed_values` list specifies which values are acceptable. The script will filter out any listing whose value is not in this list.
+
+#### c) Configuring Auto-Apply (Optional)
+
+The `appliers` section allows automatic application submission to supported housing providers when new matching listings are found.
+
+**Supported Providers:**
+-   **WBM** (`wbm`): Simple HTTP-based form submission
+-   **Gewobag** (`gewobag`): Browser-based automation with reCAPTCHA solving
+-   **HOWOGE** (`howoge`): Browser-based automation with 4-step form completion
+
+**WBM Configuration:**
+```json
+"appliers": {
+  "wbm": {
+    "enabled": true,
+    "anrede": "Frau",
+    "name": "Mustermann",
+    "vorname": "Erika",
+    "strasse": "Musterstraße 1",
+    "plz": "10115",
+    "ort": "Berlin",
+    "email": "erika.mustermann@example.com",
+    "telefon": "0123456789",
+    "wbs": "nein"
+  }
+}
+```
+
+**Gewobag Configuration:**
+```json
+"appliers": {
+  "gewobag": {
+    "enabled": true,
+    "anrede": "Frau",
+    "vorname": "Erika",
+    "nachname": "Mustermann",
+    "email": "erika.mustermann@example.com",
+    "telefon": "0123456789",
+    "mobilfunknummer": "0170123456789",
+    "strasse": "Musterstraße",
+    "hausnummer": "1",
+    "plz": "10115",
+    "ort": "Berlin",
+    "adresszusatz": "",
+    "anmerkungen": "",
+    "anzahl_erwachsene": 1,
+    "anzahl_kinder": 0,
+    "wbs": "nein",
+    "anfrage_fuer": "für mich selbst",
+    "ueber_55": "nein",
+    "wbs_datei": ""
+  }
+}
+```
+
+**Additional Fields for Senior Housing (Seniorenwohnung):**
+-   `ueber_55`: Set to `"ja"` if applicant is 55+ years old (required for senior housing listings)
+-   `wbs_datei`: Path to your WBS PDF file for upload (some listings require document upload)
+
+**HOWOGE Configuration:**
+```json
+"appliers": {
+  "howoge": {
+    "enabled": true,
+    "vorname": "Erika",
+    "nachname": "Mustermann",
+    "email": "erika.mustermann@example.com"
+  }
+}
+```
+
+**Note:** HOWOGE has a simple 4-step application process that automatically confirms WBS, income, and credit check requirements before submitting your contact details.
+
+**Note for Gewobag and HOWOGE:** These appliers use Playwright for browser automation and require additional setup:
+```bash
+pip install playwright playwright-recaptcha
+playwright install chromium
+```
+
+The applier handles dynamic form variations automatically - it detects whether the listing is a standard apartment or senior housing and fills the appropriate fields.
 
 -----
 
@@ -157,12 +238,3 @@ A `Containerfile` is included for easy containerized deployment.
 
 -   **Polling Frequency:** Be respectful. Do not set the `poll_interval_seconds` too low. A 120-300 second (2-5 minute) interval is effective and won't spam the websites' servers.
 -   **Website Changes:** This script relies on the websites' HTML structure. If any of the supported websites changes its layout, the corresponding scraper may break and will need to be updated.
-
------
-
-## 📝 TODO
-
--   **Improve Error Handling:** Make the scraper more resilient to temporary network issues or minor HTML changes.
--   **Add more scrapers:** Expand to support additional real estate platforms.
--   **Add Advanced Filtering:** Implement more complex filtering logic (e.g., proximity to transit, floor level preferences).
--   **Web Dashboard:** Create a simple web interface to view and manage listings.
