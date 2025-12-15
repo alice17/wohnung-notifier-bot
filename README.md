@@ -87,8 +87,6 @@ The `appliers` section allows automatic application submission to supported hous
 
 **Supported Providers:**
 -   **WBM** (`wbm`): Simple HTTP-based form submission
--   **Gewobag** (`gewobag`): Browser-based automation with reCAPTCHA solving
--   **HOWOGE** (`howoge`): Browser-based automation with 4-step form completion
 
 **WBM Configuration:**
 ```json
@@ -108,58 +106,6 @@ The `appliers` section allows automatic application submission to supported hous
 }
 ```
 
-**Gewobag Configuration:**
-```json
-"appliers": {
-  "gewobag": {
-    "enabled": true,
-    "anrede": "Frau",
-    "vorname": "Erika",
-    "nachname": "Mustermann",
-    "email": "erika.mustermann@example.com",
-    "telefon": "0123456789",
-    "mobilfunknummer": "0170123456789",
-    "strasse": "Musterstraße",
-    "hausnummer": "1",
-    "plz": "10115",
-    "ort": "Berlin",
-    "adresszusatz": "",
-    "anmerkungen": "",
-    "anzahl_erwachsene": 1,
-    "anzahl_kinder": 0,
-    "wbs": "nein",
-    "anfrage_fuer": "für mich selbst",
-    "ueber_55": "nein",
-    "wbs_datei": ""
-  }
-}
-```
-
-**Additional Fields for Senior Housing (Seniorenwohnung):**
--   `ueber_55`: Set to `"ja"` if applicant is 55+ years old (required for senior housing listings)
--   `wbs_datei`: Path to your WBS PDF file for upload (some listings require document upload)
-
-**HOWOGE Configuration:**
-```json
-"appliers": {
-  "howoge": {
-    "enabled": true,
-    "vorname": "Erika",
-    "nachname": "Mustermann",
-    "email": "erika.mustermann@example.com"
-  }
-}
-```
-
-**Note:** HOWOGE has a simple 4-step application process that automatically confirms WBS, income, and credit check requirements before submitting your contact details.
-
-**Note for Gewobag and HOWOGE:** These appliers use Playwright for browser automation and require additional setup:
-```bash
-pip install playwright playwright-recaptcha
-playwright install chromium
-```
-
-The applier handles dynamic form variations automatically - it detects whether the listing is a standard apartment or senior housing and fills the appropriate fields.
 
 -----
 
