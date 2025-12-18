@@ -30,7 +30,7 @@ RATE_LIMIT_SLEEP_SECONDS = 1
 DEFAULT_POLL_INTERVAL_SECONDS = 300
 """Default interval between scraping runs (5 minutes)."""
 
-LISTING_MAX_AGE_DAYS = 2
+LISTING_MAX_AGE_DAYS = 30
 """Maximum age of listings before cleanup (in days)."""
 
 REQUEST_TIMEOUT_SECONDS = 10
