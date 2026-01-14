@@ -1,4 +1,11 @@
 .idea/
-known_listings_by_url.json
-last_hash.txt
+listings.db
+listings.db.backup_*
+test_listings.db
 venv/
+*.pyc
+settings.json
+.cursorrules
+.pytest_cache/
+.coverage
+__pycache__/
