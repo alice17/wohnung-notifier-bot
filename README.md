@@ -1,4 +1,4 @@
-# 🏠 Berlin Apartment Notifier
+# Berlin Apartment Notifier
 
 ![Tests](https://github.com/alice17/wohnung-notifier-bot/actions/workflows/test.yml/badge.svg)
 ![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/alice17/a61e9c704ca8a2e3d5a33aa58a89e625/raw/coverage-badge.json)
@@ -8,7 +8,15 @@ A Python script that monitors multiple German real estate websites (including `i
 
 -----
 
-## ✨ Key Features
+## About This Project
+
+This project was primarily **vibe-coded** as a personal learning exercise. It started as a way to explore web scraping, automation, and Python best practices while solving a real problem: finding an apartment in Berlin's competitive rental market.
+
+While it works and I use it myself, expect some rough edges. Contributions and feedback are welcome!
+
+-----
+
+## Key Features
 
 -   **Multi-Website Support:** Natively scrapes listings from `inberlinwohnen.de`, `immowelt.de`, `kleinanzeigen.de`, `ohne-makler.net`, `deutsche-wohnen.com`, and `vonovia.de`. Note that `inberlinwohnen.de` is a portal that aggregates listings from Berlin's state-owned housing companies: Gewobag, HOWOGE, WBM, Gesobau, and Stadt und Land.
 -   **Intelligent Scraping:** Instead of watching the whole page, the script parses individual apartment listings, tracking them by their unique URL.
@@ -21,7 +29,7 @@ A Python script that monitors multiple German real estate websites (including `i
 
 -----
 
-## ⚙️ How It Works
+## How It Works
 
 1.  **Load Settings:** The script reads your configuration from `settings.json`, including which scrapers to enable.
 2.  **Fetch & Parse:** It runs all enabled scrapers, which download the HTML from their respective target sites and use `BeautifulSoup` to find all individual apartment listings.
@@ -33,7 +41,7 @@ A Python script that monitors multiple German real estate websites (including `i
 
 -----
 
-## 🚀 Setup Guide
+## Setup Guide
 
 ### 1. Prerequisites
 
@@ -109,7 +117,7 @@ The `appliers` section allows automatic application submission to supported hous
 
 -----
 
-## ▶️ How to Run
+## How to Run
 
 1.  Make sure your `settings.json` file is configured correctly.
 2.  Navigate to your project directory in your terminal.
@@ -131,9 +139,29 @@ INFO - Initial baseline set with 35 listings.
 INFO - Sleeping for 120 seconds...
 ```
 
+### Cron Mode
+
+By default, the script runs continuously in a loop, checking for new listings at regular intervals defined by `poll_interval_seconds`. However, you can also run it in **cron mode** for single-execution scheduling:
+
+```bash
+python3 main.py --cron
+```
+
+In cron mode, the script:
+-   Runs all enabled scrapers once
+-   Processes and notifies about any new listings
+-   Exits immediately after completion
+
+This is useful when you want to use an external scheduler like **cron** or **systemd timers** instead of the built-in polling loop.
+
+**Example crontab entry** (runs every 5 minutes):
+```bash
+*/5 * * * * cd /path/to/wohnung_scraper && /path/to/venv/bin/python main.py --cron >> /var/log/wohnung_scraper.log 2>&1
+```
+
 -----
 
-## 📦 Database Storage
+## Database Storage
 
 The application uses SQLite to store known listings, providing better performance and reliability compared to JSON files.
 
@@ -155,7 +183,7 @@ Starting from the latest version, the scraper uses a SQLite database (`listings.
 -   **Backup Friendly:** Single file database makes backups simple
 
 
-## 🐳 Running with Docker / Podman
+## Running with Docker / Podman
 
 A `Containerfile` is included for easy containerized deployment.
 
@@ -180,7 +208,7 @@ A `Containerfile` is included for easy containerized deployment.
 
 -----
 
-## ⚖️ Disclaimer
+## Disclaimer
 
 -   **Polling Frequency:** Be respectful. Do not set the `poll_interval_seconds` too low. A 120-300 second (2-5 minute) interval is effective and won't spam the websites' servers.
 -   **Website Changes:** This script relies on the websites' HTML structure. If any of the supported websites changes its layout, the corresponding scraper may break and will need to be updated.
