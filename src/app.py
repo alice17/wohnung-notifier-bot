@@ -58,12 +58,18 @@ class App:
     def setup(self) -> None:
         """Initializes the application state by loading data and setting up filters."""
         logger.info(f"Setting up the application with {len(self.scrapers)} sources...")
+        
+        # Set up borough resolver BEFORE scraping so scrapers can resolve boroughs
+        self.borough_resolver = BoroughResolver()
+        if self.borough_resolver.is_loaded():
+            for scraper in self.scrapers:
+                scraper.set_borough_resolver(self.borough_resolver)
+
         self.known_listings = self.store.load()
 
         if not self.known_listings:
             self._initialize_baseline()
 
-        self.borough_resolver = BoroughResolver()
         listing_filter = ListingFilter(self.config, self.borough_resolver)
 
         self.listing_processor = ListingProcessor(
@@ -71,10 +77,6 @@ class App:
             listing_filter=listing_filter,
             appliers=self.appliers,
         )
-
-        if self.borough_resolver.is_loaded():
-            for scraper in self.scrapers:
-                scraper.set_borough_resolver(self.borough_resolver)
 
         logger.info("Application setup complete.")
 
@@ -90,22 +92,23 @@ class App:
 
         if cron_mode:
             logger.info("Running in cron mode (single execution).")
-
-        while True:
-            if self._handle_suspension():
-                continue
-
             try:
                 self._check_for_updates()
             except Exception as e:
                 self._handle_unexpected_error(e)
+                
+        else:
+            while True:
+                if self._handle_suspension():
+                    continue
 
-            if cron_mode:
-                logger.info("Cron mode execution complete. Exiting.")
-                break
+                try:
+                    self._check_for_updates()
+                except Exception as e:
+                    self._handle_unexpected_error(e)
 
-            logger.info(f"Sleeping for {self.config.poll_interval} seconds...")
-            time.sleep(self.config.poll_interval)
+                logger.info(f"Sleeping for {self.config.poll_interval} seconds...")
+                time.sleep(self.config.poll_interval)
 
     def _handle_suspension(self) -> bool:
         """
@@ -163,7 +166,7 @@ class App:
             self.store.save(self.known_listings)
             logger.info(f"Initial baseline set with {len(self.known_listings)} listings.")
             self.notifier.send_message(
-                f"✅ Monitoring started. Found {len(self.known_listings)} initial listings."
+                f"✅ Monitoring started\\. Found {len(self.known_listings)} initial listings\\."
             )
         else:
             logger.warning("Failed to get initial listings. Will retry.")
