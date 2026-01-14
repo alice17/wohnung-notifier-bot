@@ -119,21 +119,22 @@ class KleinanzeigenScraper(BaseScraper):
 
     def _extract_identifier_fast(self, listing_soup: BeautifulSoup) -> Optional[str]:
         """
-        Quickly extracts the listing identifier without full parsing.
+        Quickly extracts the listing identifier (URL) without full parsing.
         
         This enables early termination check before expensive full parsing.
+        The identifier must match what's stored in the Listing object (the URL).
         
         Args:
             listing_soup: BeautifulSoup object for a single listing.
             
         Returns:
-            The listing identifier (ad ID) or None if not found.
+            The listing URL as identifier, or None if not found.
         """
         aditem = listing_soup.select_one('.aditem')
         if aditem:
-            ad_id = aditem.get('data-adid')
-            if ad_id:
-                return str(ad_id)
+            relative_url = aditem.get('data-href')
+            if relative_url:
+                return f"https://www.kleinanzeigen.de{relative_url}"
         return None
 
     def _parse_listing(self, listing_soup: BeautifulSoup) -> Optional[Listing]:
@@ -172,8 +173,7 @@ class KleinanzeigenScraper(BaseScraper):
             sqm=size,
             price_cold=price,
             rooms=rooms,
-            link=url,
-            identifier=ad_id,
+            identifier=url,
         )
 
     def _extract_ad_id(self, listing_soup: BeautifulSoup) -> Optional[str]:

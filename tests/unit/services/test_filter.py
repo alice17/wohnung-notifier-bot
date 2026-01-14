@@ -109,8 +109,7 @@ class TestListingFilter(unittest.TestCase):
             "price_total": "1000.00",
             "rooms": "2.0",
             "wbs": "N/A",
-            "link": "https://example.com/listing",
-            "identifier": "test-123"
+            "identifier": "https://example.com/listing/test-123",
         }
         defaults.update(kwargs)
         return Listing(**defaults)

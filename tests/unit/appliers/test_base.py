@@ -2,9 +2,9 @@
 Unit tests for the BaseApplier class and related types.
 """
 import unittest
-from typing import Dict, Any, List
+from typing import List
 
-from src.appliers.base import BaseApplier, ApplyResult, ApplyStatus
+from src.appliers.base import ApplyResult, ApplyStatus, BaseApplier
 from src.core.listing import Listing
 
 
@@ -24,8 +24,7 @@ class ConcreteApplier(BaseApplier):
     def apply(self, listing: Listing) -> ApplyResult:
         """Dummy implementation for testing."""
         return ApplyResult(
-            status=ApplyStatus.SUCCESS,
-            message="Test application submitted"
+            status=ApplyStatus.SUCCESS, message="Test application submitted"
         )
 
 
@@ -47,8 +46,7 @@ class TestApplyResult(unittest.TestCase):
     def test_create_success_result(self):
         """Tests creating a successful ApplyResult."""
         result = ApplyResult(
-            status=ApplyStatus.SUCCESS,
-            message="Application submitted successfully"
+            status=ApplyStatus.SUCCESS, message="Application submitted successfully"
         )
         self.assertEqual(result.status, ApplyStatus.SUCCESS)
         self.assertEqual(result.message, "Application submitted successfully")
@@ -56,14 +54,9 @@ class TestApplyResult(unittest.TestCase):
 
     def test_create_result_with_applicant_data(self):
         """Tests creating ApplyResult with applicant data."""
-        applicant_data = {
-            "Name": "Test User",
-            "Email": "test@example.com"
-        }
+        applicant_data = {"Name": "Test User", "Email": "test@example.com"}
         result = ApplyResult(
-            status=ApplyStatus.SUCCESS,
-            message="Success",
-            applicant_data=applicant_data
+            status=ApplyStatus.SUCCESS, message="Success", applicant_data=applicant_data
         )
         self.assertEqual(result.applicant_data, applicant_data)
 
@@ -82,10 +75,12 @@ class TestApplyResult(unittest.TestCase):
         for status in [
             ApplyStatus.SKIPPED,
             ApplyStatus.FORM_NOT_FOUND,
-            ApplyStatus.MISSING_CONFIG
+            ApplyStatus.MISSING_CONFIG,
         ]:
             result = ApplyResult(status=status, message="Test")
-            self.assertFalse(result.is_success, f"is_success should be False for {status}")
+            self.assertFalse(
+                result.is_success, f"is_success should be False for {status}"
+            )
 
 
 class TestBaseApplier(unittest.TestCase):
@@ -93,10 +88,7 @@ class TestBaseApplier(unittest.TestCase):
 
     def setUp(self):
         """Set up common test fixtures."""
-        self.config = {
-            "name": "Test",
-            "email": "test@example.com"
-        }
+        self.config = {"name": "Test", "email": "test@example.com"}
         self.applier = ConcreteApplier(self.config)
 
     def test_initialization_stores_config(self):
@@ -117,35 +109,27 @@ class TestBaseApplier(unittest.TestCase):
     def test_can_apply_returns_true_for_matching_url(self):
         """Tests can_apply returns True for URLs matching patterns."""
         listing = Listing(
-            source="test",
-            link="https://test.example.com/listing/123"
+            source="test", identifier="https://test.example.com/listing/123"
         )
         self.assertTrue(self.applier.can_apply(listing))
 
     def test_can_apply_returns_true_for_alternative_pattern(self):
         """Tests can_apply matches any of the URL patterns."""
         listing = Listing(
-            source="test",
-            link="https://other.test.com/apartment/456"
+            source="test", identifier="https://other.test.com/apartment/456"
         )
         self.assertTrue(self.applier.can_apply(listing))
 
     def test_can_apply_returns_false_for_non_matching_url(self):
         """Tests can_apply returns False for non-matching URLs."""
         listing = Listing(
-            source="test",
-            link="https://different-site.com/listing/123"
+            source="test", identifier="https://different-site.com/listing/123"
         )
         self.assertFalse(self.applier.can_apply(listing))
 
-    def test_can_apply_returns_false_for_empty_link(self):
-        """Tests can_apply returns False for empty link."""
-        listing = Listing(source="test", link="")
-        self.assertFalse(self.applier.can_apply(listing))
-
-    def test_can_apply_returns_false_for_na_link(self):
-        """Tests can_apply returns False for N/A link."""
-        listing = Listing(source="test", link="N/A")
+    def test_can_apply_returns_false_for_non_url_identifier(self):
+        """Tests can_apply returns False for non-URL identifiers."""
+        listing = Listing(source="test", identifier="some-hash-identifier")
         self.assertFalse(self.applier.can_apply(listing))
 
     def test_is_configured_returns_true_with_config(self):
@@ -165,16 +149,13 @@ class TestBaseApplier(unittest.TestCase):
     def test_apply_method_can_be_called(self):
         """Tests that apply method can be called on concrete implementation."""
         listing = Listing(
-            source="test",
-            link="https://test.example.com/listing/123"
+            source="test", identifier="https://test.example.com/listing/123"
         )
         result = self.applier.apply(listing)
-        
+
         self.assertIsInstance(result, ApplyResult)
         self.assertEqual(result.status, ApplyStatus.SUCCESS)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
-
-

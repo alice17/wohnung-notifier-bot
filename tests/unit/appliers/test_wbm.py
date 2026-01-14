@@ -41,7 +41,7 @@ class TestWBMApplier(unittest.TestCase):
         """Tests can_apply returns True for WBM URLs."""
         listing = Listing(
             source="wbm",
-            link="https://www.wbm.de/wohnungen-berlin/angebote/details/?id=123"
+            identifier="https://www.wbm.de/wohnungen-berlin/angebote/details/?id=123"
         )
         self.assertTrue(self.applier.can_apply(listing))
 
@@ -49,7 +49,7 @@ class TestWBMApplier(unittest.TestCase):
         """Tests can_apply returns True for WBM URLs without www."""
         listing = Listing(
             source="wbm",
-            link="https://wbm.de/wohnungen-berlin/angebote/details/?id=123"
+            identifier="https://wbm.de/wohnungen-berlin/angebote/details/?id=123"
         )
         self.assertTrue(self.applier.can_apply(listing))
 
@@ -57,7 +57,7 @@ class TestWBMApplier(unittest.TestCase):
         """Tests can_apply returns False for non-WBM URLs."""
         listing = Listing(
             source="degewo",
-            link="https://www.degewo.de/listing/123"
+            identifier="https://www.degewo.de/listing/123"
         )
         self.assertFalse(self.applier.can_apply(listing))
 
@@ -75,9 +75,9 @@ class TestWBMApplier(unittest.TestCase):
         empty_applier = WBMApplier({})
         listing = Listing(
             source="wbm",
-            link="https://www.wbm.de/listing/123"
+            identifier="https://www.wbm.de/listing/123"
         )
-        
+
         result = empty_applier.apply(listing)
         
         self.assertEqual(result.status, ApplyStatus.MISSING_CONFIG)
@@ -265,7 +265,7 @@ class TestWBMApplier(unittest.TestCase):
         
         listing = Listing(
             source="wbm",
-            link="https://www.wbm.de/listing/123"
+            identifier="https://www.wbm.de/listing/123"
         )
         result = self.applier.apply(listing)
         

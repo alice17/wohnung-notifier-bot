@@ -178,7 +178,6 @@ class ImmoweltScraper(BaseScraper):
             sqm=sqm,
             price_cold=price_cold,
             rooms=rooms,
-            link=url,
             identifier=url,
         )
 
@@ -349,12 +348,12 @@ class ImmoweltScraper(BaseScraper):
 
     def _scrape_listing_details(self, listing: Listing, session: requests.Session):
         """Scrapes additional details from the listing's detail page."""
-        if not listing.link or listing.link == 'N/A':
+        if not listing.identifier or not listing.identifier.startswith("http"):
             return
 
         try:
-            logger.info(f"Fetching details from: {listing.link}")
-            detail_response = session.get(listing.link, timeout=10)
+            logger.info(f"Fetching details from: {listing.identifier}")
+            detail_response = session.get(listing.identifier, timeout=10)
             detail_response.raise_for_status()
 
             detail_soup = BeautifulSoup(detail_response.text, 'html.parser')
@@ -374,7 +373,7 @@ class ImmoweltScraper(BaseScraper):
                         )
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"  > Error fetching detail page {listing.link}: {e}")
+            logger.error(f"  > Error fetching detail page {listing.identifier}: {e}")
 
     @staticmethod
     def _clean_text(text: Optional[str]) -> str:

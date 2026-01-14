@@ -197,8 +197,7 @@ class InBerlinWohnenScraper(BaseScraper):
         details: Dict[str, str] = {}
         link_tag = listing_soup.find('a', string=re.compile(r'Alle Details'))
         if link_tag and link_tag.get('href'):
-            details['link'] = link_tag['href']
-            details['identifier'] = details['link']
+            details['identifier'] = link_tag['href']
 
         dts = listing_soup.find_all('dt')
         for dt in dts:

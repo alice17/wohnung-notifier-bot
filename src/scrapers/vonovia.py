@@ -202,7 +202,6 @@ class VonoviaScraper(BaseScraper):
                 sqm=sqm,
                 price_cold=price_cold,
                 rooms=rooms,
-                link=link,
                 identifier=link,
             )
 

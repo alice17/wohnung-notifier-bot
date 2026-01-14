@@ -167,7 +167,7 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
         self.assertEqual(listing.sqm, '60')
         self.assertEqual(listing.rooms, '2')
         self.assertEqual(
-            listing.link,
+            listing.identifier,
             'https://www.deutsche-wohnen.com/mieten/mietangebote/'
             'test-listing-89-12345'
         )

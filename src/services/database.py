@@ -7,7 +7,7 @@ apartment listings with proper error handling and connection management.
 import logging
 import sqlite3
 from contextlib import contextmanager
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 from src.core.listing import Listing
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class DatabaseManager:
     """
     Manages SQLite database operations for apartment listings.
-    
+
     This class provides a comprehensive interface for CRUD operations on
     apartment listings, with automatic schema creation and connection management.
     """
@@ -25,8 +25,8 @@ class DatabaseManager:
     _UPSERT_QUERY = """
     INSERT INTO listings 
     (identifier, source, address, borough, sqm, price_cold, 
-     price_total, rooms, wbs, link, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+     price_total, rooms, wbs, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     ON CONFLICT(identifier) DO UPDATE SET
         source = excluded.source,
         address = excluded.address,
@@ -36,14 +36,13 @@ class DatabaseManager:
         price_total = excluded.price_total,
         rooms = excluded.rooms,
         wbs = excluded.wbs,
-        link = excluded.link,
         updated_at = CURRENT_TIMESTAMP
     """
 
     def __init__(self, db_path: str = "listings.db"):
         """
         Initialize the DatabaseManager with a database path.
-        
+
         Args:
             db_path: Path to the SQLite database file. Defaults to "listings.db".
         """
@@ -54,10 +53,10 @@ class DatabaseManager:
     def _get_connection(self):
         """
         Context manager for database connections with automatic cleanup.
-        
+
         Yields:
             sqlite3.Connection: Active database connection.
-            
+
         Raises:
             sqlite3.Error: If connection cannot be established.
         """
@@ -76,30 +75,29 @@ class DatabaseManager:
     def _row_to_listing(self, row: sqlite3.Row) -> Listing:
         """
         Converts a database row to a Listing object.
-        
+
         Args:
             row: A sqlite3.Row containing listing data.
-            
+
         Returns:
             A Listing object populated with data from the row.
         """
         return Listing(
-            source=row['source'],
-            address=row['address'],
-            borough=row['borough'],
-            sqm=row['sqm'],
-            price_cold=row['price_cold'],
-            price_total=row['price_total'],
-            rooms=row['rooms'],
-            wbs=row['wbs'],
-            link=row['link'],
-            identifier=row['identifier']
+            source=row["source"],
+            address=row["address"],
+            borough=row["borough"],
+            sqm=row["sqm"],
+            price_cold=row["price_cold"],
+            price_total=row["price_total"],
+            rooms=row["rooms"],
+            wbs=row["wbs"],
+            identifier=row["identifier"],
         )
 
     def _initialize_database(self) -> None:
         """
         Creates the listings table if it doesn't exist.
-        
+
         The table schema matches the Listing dataclass structure with
         proper indexing on identifier for fast lookups.
         """
@@ -114,87 +112,96 @@ class DatabaseManager:
             price_total TEXT NOT NULL,
             rooms TEXT NOT NULL,
             wbs TEXT NOT NULL,
-            link TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
-        
+
         create_index_query = """
         CREATE INDEX IF NOT EXISTS idx_source 
         ON listings(source);
         """
-        
+
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(create_table_query)
                 cursor.execute(create_index_query)
+                # Migrate old schema if link column exists
+                self._migrate_schema(cursor)
                 conn.commit()
                 logger.info("Database initialized successfully")
         except sqlite3.Error as e:
             logger.error(f"Failed to initialize database: {e}")
             raise
 
+    def _migrate_schema(self, cursor: sqlite3.Cursor) -> None:
+        """
+        Migrates old schema by removing deprecated link column.
+
+        Args:
+            cursor: Active database cursor.
+        """
+        # Check if link column exists
+        cursor.execute("PRAGMA table_info(listings)")
+        columns = [col[1] for col in cursor.fetchall()]
+
+        if "link" in columns:
+            logger.info("Migrating database: removing deprecated 'link' column")
+            # SQLite doesn't support DROP COLUMN in older versions,
+            # so we recreate the table
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS listings_new (
+                    identifier TEXT PRIMARY KEY,
+                    source TEXT NOT NULL,
+                    address TEXT NOT NULL,
+                    borough TEXT NOT NULL,
+                    sqm TEXT NOT NULL,
+                    price_cold TEXT NOT NULL,
+                    price_total TEXT NOT NULL,
+                    rooms TEXT NOT NULL,
+                    wbs TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            )
+            cursor.execute(
+                """
+                INSERT INTO listings_new 
+                (identifier, source, address, borough, sqm, price_cold, 
+                 price_total, rooms, wbs, created_at, updated_at)
+                SELECT identifier, source, address, borough, sqm, price_cold, 
+                       price_total, rooms, wbs, created_at, updated_at
+                FROM listings
+            """
+            )
+            cursor.execute("DROP TABLE listings")
+            cursor.execute("ALTER TABLE listings_new RENAME TO listings")
+            logger.info("Database migration completed successfully")
+
     def save_listing(self, listing: Listing) -> bool:
         """
         Saves or updates a single listing in the database.
-        
+
         Uses INSERT with ON CONFLICT to handle both new and existing listings.
         For new listings, both created_at and updated_at are set to current time.
         For existing listings, only updated_at is updated while created_at is
         preserved.
-        
+
         Args:
             listing: The Listing object to save.
-            
+
         Returns:
             True if the operation was successful, False otherwise.
         """
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(self._UPSERT_QUERY, (
-                    listing.identifier,
-                    listing.source,
-                    listing.address,
-                    listing.borough,
-                    listing.sqm,
-                    listing.price_cold,
-                    listing.price_total,
-                    listing.rooms,
-                    listing.wbs,
-                    listing.link
-                ))
-                conn.commit()
-                return True
-        except sqlite3.Error as e:
-            logger.error(f"Failed to save listing {listing.identifier}: {e}")
-            return False
-
-    def save_listings(self, listings: Dict[str, Listing]) -> bool:
-        """
-        Saves multiple listings in a single transaction for efficiency.
-        
-        Uses INSERT with ON CONFLICT to handle both new and existing listings.
-        For new listings, both created_at and updated_at are set to current time.
-        For existing listings, only updated_at is updated while created_at is
-        preserved.
-        
-        Args:
-            listings: Dictionary mapping identifiers to Listing objects.
-            
-        Returns:
-            True if all listings were saved successfully, False otherwise.
-        """
-        if not listings:
-            return True
-        
-        try:
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
-                for listing in listings.values():
-                    cursor.execute(self._UPSERT_QUERY, (
+                cursor.execute(
+                    self._UPSERT_QUERY,
+                    (
                         listing.identifier,
                         listing.source,
                         listing.address,
@@ -204,8 +211,50 @@ class DatabaseManager:
                         listing.price_total,
                         listing.rooms,
                         listing.wbs,
-                        listing.link
-                    ))
+                    ),
+                )
+                conn.commit()
+                return True
+        except sqlite3.Error as e:
+            logger.error(f"Failed to save listing {listing.identifier}: {e}")
+            return False
+
+    def save_listings(self, listings: Dict[str, Listing]) -> bool:
+        """
+        Saves multiple listings in a single transaction for efficiency.
+
+        Uses INSERT with ON CONFLICT to handle both new and existing listings.
+        For new listings, both created_at and updated_at are set to current time.
+        For existing listings, only updated_at is updated while created_at is
+        preserved.
+
+        Args:
+            listings: Dictionary mapping identifiers to Listing objects.
+
+        Returns:
+            True if all listings were saved successfully, False otherwise.
+        """
+        if not listings:
+            return True
+
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                for listing in listings.values():
+                    cursor.execute(
+                        self._UPSERT_QUERY,
+                        (
+                            listing.identifier,
+                            listing.source,
+                            listing.address,
+                            listing.borough,
+                            listing.sqm,
+                            listing.price_cold,
+                            listing.price_total,
+                            listing.rooms,
+                            listing.wbs,
+                        ),
+                    )
                 conn.commit()
                 logger.info(f"Successfully saved {len(listings)} listings")
                 return True
@@ -216,59 +265,55 @@ class DatabaseManager:
     def load_all_listings(self) -> Dict[str, Listing]:
         """
         Loads all listings from the database.
-        
+
         Returns:
             Dictionary mapping identifiers to Listing objects.
         """
         query = """
         SELECT identifier, source, address, borough, sqm, 
-               price_cold, price_total, rooms, wbs, link
+               price_cold, price_total, rooms, wbs
         FROM listings
         """
-        
+
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(query)
                 rows = cursor.fetchall()
-                
+
                 listings = {
-                    row['identifier']: self._row_to_listing(row)
-                    for row in rows
+                    row["identifier"]: self._row_to_listing(row) for row in rows
                 }
-                
+
                 logger.info(f"Loaded {len(listings)} listings from database")
                 return listings
         except sqlite3.Error as e:
             logger.error(f"Failed to load listings: {e}")
             return {}
 
-    def get_listing_by_identifier(
-        self, 
-        identifier: str
-    ) -> Optional[Listing]:
+    def get_listing_by_identifier(self, identifier: str) -> Optional[Listing]:
         """
         Retrieves a specific listing by its identifier.
-        
+
         Args:
             identifier: The unique identifier of the listing.
-            
+
         Returns:
             Listing object if found, None otherwise.
         """
         query = """
         SELECT identifier, source, address, borough, sqm, 
-               price_cold, price_total, rooms, wbs, link
+               price_cold, price_total, rooms, wbs
         FROM listings
         WHERE identifier = ?
         """
-        
+
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, (identifier,))
                 row = cursor.fetchone()
-                
+
                 return self._row_to_listing(row) if row else None
         except sqlite3.Error as e:
             logger.error(f"Failed to get listing {identifier}: {e}")
@@ -277,30 +322,27 @@ class DatabaseManager:
     def get_listings_by_source(self, source: str) -> Dict[str, Listing]:
         """
         Retrieves all listings from a specific source.
-        
+
         Args:
             source: The source name to filter by.
-            
+
         Returns:
             Dictionary mapping identifiers to Listing objects for the source.
         """
         query = """
         SELECT identifier, source, address, borough, sqm, 
-               price_cold, price_total, rooms, wbs, link
+               price_cold, price_total, rooms, wbs
         FROM listings
         WHERE source = ?
         """
-        
+
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, (source,))
                 rows = cursor.fetchall()
-                
-                return {
-                    row['identifier']: self._row_to_listing(row)
-                    for row in rows
-                }
+
+                return {row["identifier"]: self._row_to_listing(row) for row in rows}
         except sqlite3.Error as e:
             logger.error(f"Failed to get listings for source {source}: {e}")
             return {}
@@ -308,15 +350,15 @@ class DatabaseManager:
     def delete_listing(self, identifier: str) -> bool:
         """
         Deletes a listing from the database.
-        
+
         Args:
             identifier: The unique identifier of the listing to delete.
-            
+
         Returns:
             True if deletion was successful, False otherwise.
         """
         query = "DELETE FROM listings WHERE identifier = ?"
-        
+
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -330,18 +372,18 @@ class DatabaseManager:
     def delete_listings(self, identifiers: List[str]) -> bool:
         """
         Deletes multiple listings in a single transaction.
-        
+
         Args:
             identifiers: List of identifiers to delete.
-            
+
         Returns:
             True if all deletions were successful, False otherwise.
         """
         if not identifiers:
             return True
-            
+
         query = "DELETE FROM listings WHERE identifier = ?"
-        
+
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -357,18 +399,18 @@ class DatabaseManager:
     def count_listings(self) -> int:
         """
         Returns the total number of listings in the database.
-        
+
         Returns:
             Total count of listings.
         """
         query = "SELECT COUNT(*) as count FROM listings"
-        
+
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(query)
                 row = cursor.fetchone()
-                return row['count'] if row else 0
+                return row["count"] if row else 0
         except sqlite3.Error as e:
             logger.error(f"Failed to count listings: {e}")
             return 0
@@ -376,14 +418,14 @@ class DatabaseManager:
     def clear_all_listings(self) -> bool:
         """
         Removes all listings from the database.
-        
+
         Use with caution - this operation cannot be undone.
-        
+
         Returns:
             True if the operation was successful, False otherwise.
         """
         query = "DELETE FROM listings"
-        
+
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -398,13 +440,13 @@ class DatabaseManager:
     def delete_old_listings(self, max_age_days: int = 2) -> int:
         """
         Deletes listings older than the specified number of days.
-        
+
         Uses the updated_at timestamp to determine listing age.
-        
+
         Args:
             max_age_days: Maximum age in days before a listing is deleted.
                           Defaults to 2 days.
-            
+
         Returns:
             Number of listings deleted.
         """
@@ -412,14 +454,14 @@ class DatabaseManager:
         DELETE FROM listings 
         WHERE updated_at < datetime('now', ?)
         """
-        
+
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(query, (f'-{max_age_days} days',))
+                cursor.execute(query, (f"-{max_age_days} days",))
                 deleted_count = cursor.rowcount
                 conn.commit()
-                
+
                 if deleted_count > 0:
                     logger.info(
                         f"Cleaned up {deleted_count} listings older than "
@@ -429,4 +471,3 @@ class DatabaseManager:
         except sqlite3.Error as e:
             logger.error(f"Failed to delete old listings: {e}")
             return 0
-

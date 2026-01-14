@@ -11,7 +11,14 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Listing:
-    """Represents a single apartment listing with its details."""
+    """
+    Represents a single apartment listing with its details.
+
+    The identifier field serves as both the unique key and the URL to the listing.
+    For listings with a valid URL, the identifier IS the URL. For listings without
+    a URL, a hash-based fallback identifier is generated.
+    """
+
     source: str
     address: str = "N/A"
     borough: str = "N/A"
@@ -20,19 +27,40 @@ class Listing:
     price_total: str = "N/A"
     rooms: str = "N/A"
     wbs: str = "N/A"
-    link: str = "N/A"
     identifier: Optional[str] = None
 
     def __post_init__(self):
-        """Generate a fallback identifier if a link is not provided."""
+        """Generate a fallback identifier if not provided."""
         if not self.identifier:
-            self.identifier = self.generate_fallback_id()
-            logger.warning(f"No deeplink found for a listing. Using fallback ID: {self.identifier}")
+            self.identifier = self._generate_fallback_id()
+            logger.warning(
+                f"No URL provided for listing. Using fallback ID: {self.identifier}"
+            )
 
-    def generate_fallback_id(self) -> str:
-        """Generates a hash based on key details if a URL is missing."""
+    def _generate_fallback_id(self) -> str:
+        """
+        Generates a hash-based identifier when no URL is available.
+
+        Returns:
+            A 16-character hash based on listing details.
+        """
         key_info = (
             f"{self.address}-{self.sqm}-{self.price_cold}-"
             f"{self.price_total}-{self.rooms}-{self.wbs}"
         )
-        return hashlib.sha256(key_info.encode('utf-8')).hexdigest()[:16]
+        return hashlib.sha256(key_info.encode("utf-8")).hexdigest()[:16]
+
+    @property
+    def url(self) -> str:
+        """
+        Returns the listing URL.
+
+        For most listings, identifier is the URL. This property provides
+        a semantic alias for readability.
+
+        Returns:
+            The listing URL or 'N/A' if identifier is a fallback hash.
+        """
+        if self.identifier and self.identifier.startswith("http"):
+            return self.identifier
+        return "N/A"

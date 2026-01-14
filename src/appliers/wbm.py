@@ -64,7 +64,7 @@ class WBMApplier(BaseApplier):
                 message="WBM applicant configuration is missing"
             )
 
-        listing_url = listing.link
+        listing_url = listing.identifier
         logger.info(f"Attempting to auto-apply for WBM listing: {listing_url}")
 
         try:

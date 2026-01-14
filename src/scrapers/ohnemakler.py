@@ -128,17 +128,21 @@ class OhneMaklerScraper(BaseScraper):
 
     def _extract_identifier_fast(self, listing_soup: BeautifulSoup) -> Optional[str]:
         """
-        Quickly extracts the listing identifier without full parsing.
+        Quickly extracts the listing identifier (URL) without full parsing.
         
         This enables early termination check before expensive full parsing.
+        The identifier must match what's stored in the Listing object (the URL).
         
         Args:
             listing_soup: BeautifulSoup object for a single listing.
             
         Returns:
-            The listing identifier (data-om-id) or None if not found.
+            The listing URL as identifier, or None if not found.
         """
-        return listing_soup.get('data-om-id')
+        href = listing_soup.get('href')
+        if href:
+            return f"{self.BASE_URL}{href}"
+        return None
 
     def _parse_listing_details(self, listing_soup: BeautifulSoup) -> Optional[Listing]:
         """
@@ -160,14 +164,13 @@ class OhneMaklerScraper(BaseScraper):
             logger.warning("Listing has no data-om-id attribute.")
             return None
 
-        # Extract URL
+        # Extract URL - used as the unique identifier
         href = listing_soup.get('href')
         if not href:
             logger.warning("Listing has no href attribute.")
             return None
-            
-        details['link'] = f"{self.BASE_URL}{href}"
-        details['identifier'] = listing_id
+
+        details['identifier'] = f"{self.BASE_URL}{href}"
 
         # Extract Kaltmiete from listing page (as fallback)
         price_span = listing_soup.find(
@@ -216,7 +219,7 @@ class OhneMaklerScraper(BaseScraper):
                 details['sqm'] = self._normalize_german_number(sqm_text)
 
         # Fetch detail page to get accurate pricing (Warmmiete)
-        price_cold, price_total = self._fetch_detail_page_pricing(details['link'])
+        price_cold, price_total = self._fetch_detail_page_pricing(details['identifier'])
         if price_cold:
             details['price_cold'] = price_cold
         if price_total:

@@ -79,9 +79,9 @@ class TelegramNotifier:
         Returns:
             A formatted string suitable for Telegram MarkdownV2.
         """
-        if listing.link != 'N/A':
+        if listing.url != 'N/A':
             # Format the link using MarkdownV2 syntax to make it clickable
-            escaped_link = escape_markdown_v2(listing.link)
+            escaped_link = escape_markdown_v2(listing.identifier)
             details_link = f"{escaped_link}"
         else:
             details_link = f"Link not found, ID: {escape_markdown_v2(listing.identifier)}"

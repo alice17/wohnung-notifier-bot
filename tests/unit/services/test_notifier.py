@@ -35,9 +35,8 @@ class TestTelegramNotifier(unittest.TestCase):
         characters is formatted correctly.
         """
         listing = Listing(
-            identifier='60-7903/24/366',
-            link='https://www.wbm.de/wohnungen-berlin/angebote/details/'
-                 '?tx_openimmo_immobilie[immobilie]=60-7903/24/366',
+            identifier='https://www.wbm.de/wohnungen-berlin/angebote/details/'
+                       '?tx_openimmo_immobilie[immobilie]=60-7903/24/366',
             address='Goltzstrasse 47, 13587 Berlin',
             borough='Spandau',
             price_cold=1491.21,

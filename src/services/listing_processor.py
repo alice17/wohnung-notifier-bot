@@ -129,7 +129,7 @@ class ListingProcessor:
                 result = applier.apply(listing)
                 if result.is_success and result.applicant_data:
                     success_message = applier.format_success_message(
-                        listing.link, result.applicant_data
+                        listing.identifier, result.applicant_data
                     )
                     self._notifier.send_message(success_message)
                 # Only try the first matching applier

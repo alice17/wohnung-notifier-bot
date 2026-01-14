@@ -216,7 +216,7 @@ class TestVonoviaScraper(unittest.TestCase):
         self.assertEqual(listing.sqm, '119.26')
         self.assertEqual(listing.rooms, '3')
         self.assertEqual(
-            listing.link,
+            listing.identifier,
             'https://www.vonovia.de/zuhause-finden/'
             '3-zimmer-erdgeschosswohnung-zur-miete-in-berlin-wedding-82-505949'
         )

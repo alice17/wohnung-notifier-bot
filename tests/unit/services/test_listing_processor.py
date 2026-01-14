@@ -9,9 +9,8 @@ from src.services.listing_processor import ListingProcessor
 
 
 def create_test_listing(
-    identifier: str = "test-123",
+    identifier: str = "https://example.com/listing/123",
     address: str = "Test Street 1",
-    link: str = "https://example.com/listing/123",
 ) -> Listing:
     """Create a test listing with default values."""
     return Listing(
@@ -24,7 +23,6 @@ def create_test_listing(
         price_total="600",
         wbs="Nein",
         borough="Mitte",
-        link=link,
     )
 
 
