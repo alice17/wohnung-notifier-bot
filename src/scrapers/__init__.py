@@ -2,7 +2,6 @@
 This package contains all the scraper implementations.
 """
 from .base import BaseScraper
-from .wohnraumkarte import WohnraumkarteScraper
 from .deutschewohnen import DeutscheWohnenScraper
 from .immowelt import ImmoweltScraper
 from .inberlinwohnen import InBerlinWohnenScraper

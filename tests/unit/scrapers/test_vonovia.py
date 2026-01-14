@@ -23,7 +23,7 @@ class TestVonoviaScraper(unittest.TestCase):
         self.assertEqual(self.scraper.name, 'vonovia')
         self.assertEqual(
             self.scraper.api_url,
-            'https://www.wohnraumkarte.de/api/getImmoList'
+            'https://www.vonovia.de/api/real-estate/list'
         )
         self.assertEqual(
             self.scraper.base_url,
@@ -152,15 +152,19 @@ class TestVonoviaScraper(unittest.TestCase):
         self.assertEqual(rooms, '1')
 
     def test_build_listing_url(self):
-        """Test listing URL building."""
+        """Test listing URL building.
+
+        The new API returns slugs that already contain the ID, so we
+        just use the slug directly.
+        """
         listing_data = {
-            'slug': '3-zimmer-erdgeschosswohnung-zur-miete-in-berlin-wedding',
+            'slug': '3-zimmer-erdgeschosswohnung-zur-miete-in-berlin-wedding-82-505949',
             'wrk_id': '505949'
         }
         url = self.scraper._build_listing_url(listing_data)
         expected = (
             'https://www.vonovia.de/zuhause-finden/'
-            '3-zimmer-erdgeschosswohnung-zur-miete-in-berlin-wedding-505949'
+            '3-zimmer-erdgeschosswohnung-zur-miete-in-berlin-wedding-82-505949'
         )
         self.assertEqual(url, expected)
 
@@ -173,16 +177,16 @@ class TestVonoviaScraper(unittest.TestCase):
     def test_extract_identifier_fast(self):
         """Test fast identifier extraction."""
         listing_data = {
-            'slug': 'test-listing',
+            'slug': 'test-listing-82-12345',
             'wrk_id': '12345'
         }
         identifier = self.scraper._extract_identifier_fast(listing_data)
-        expected = 'https://www.vonovia.de/zuhause-finden/test-listing-12345'
+        expected = 'https://www.vonovia.de/zuhause-finden/test-listing-82-12345'
         self.assertEqual(identifier, expected)
 
     def test_extract_identifier_fast_missing_data(self):
         """Test fast identifier extraction with missing data."""
-        listing_data = {'slug': 'test-listing'}
+        listing_data = {}
         identifier = self.scraper._extract_identifier_fast(listing_data)
         self.assertIsNone(identifier)
 
@@ -196,7 +200,7 @@ class TestVonoviaScraper(unittest.TestCase):
             'preis': '1673',
             'groesse': '119.26',
             'anzahl_zimmer': '3',
-            'slug': '3-zimmer-erdgeschosswohnung-zur-miete-in-berlin-wedding'
+            'slug': '3-zimmer-erdgeschosswohnung-zur-miete-in-berlin-wedding-82-505949'
         }
 
         listing = self.scraper._parse_listing(listing_data)
@@ -214,7 +218,7 @@ class TestVonoviaScraper(unittest.TestCase):
         self.assertEqual(
             listing.link,
             'https://www.vonovia.de/zuhause-finden/'
-            '3-zimmer-erdgeschosswohnung-zur-miete-in-berlin-wedding-505949'
+            '3-zimmer-erdgeschosswohnung-zur-miete-in-berlin-wedding-82-505949'
         )
         # Warm rent should be N/A as it's not available from API
         self.assertEqual(listing.price_total, 'N/A')
@@ -264,7 +268,7 @@ class TestVonoviaScraper(unittest.TestCase):
                     'preis': '1673',
                     'groesse': '119.26',
                     'anzahl_zimmer': '3',
-                    'slug': 'test-listing-1'
+                    'slug': 'test-listing-1-82-505949'
                 },
                 {
                     'wrk_id': '520702',
@@ -274,7 +278,7 @@ class TestVonoviaScraper(unittest.TestCase):
                     'preis': '667.29',
                     'groesse': '50.21',
                     'anzahl_zimmer': '1.5',
-                    'slug': 'test-listing-2'
+                    'slug': 'test-listing-2-82-520702'
                 }
             ]
         }
@@ -298,7 +302,7 @@ class TestVonoviaScraper(unittest.TestCase):
                     'preis': '1673',
                     'groesse': '119.26',
                     'anzahl_zimmer': '3',
-                    'slug': 'test-listing-1'
+                    'slug': 'test-listing-1-82-505949'
                 },
                 {
                     'wrk_id': '520702',
@@ -308,7 +312,7 @@ class TestVonoviaScraper(unittest.TestCase):
                     'preis': '667.29',
                     'groesse': '50.21',
                     'anzahl_zimmer': '1.5',
-                    'slug': 'test-listing-2'
+                    'slug': 'test-listing-2-82-520702'
                 }
             ]
         }
@@ -316,7 +320,7 @@ class TestVonoviaScraper(unittest.TestCase):
 
         # Create a known listing matching the second listing
         known_url = (
-            'https://www.vonovia.de/zuhause-finden/test-listing-2-520702'
+            'https://www.vonovia.de/zuhause-finden/test-listing-2-82-520702'
         )
         known_listings = {known_url: Mock()}
 
@@ -339,4 +343,3 @@ class TestVonoviaScraper(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

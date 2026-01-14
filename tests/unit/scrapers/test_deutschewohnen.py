@@ -23,7 +23,7 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
         self.assertEqual(self.scraper.name, 'deutschewohnen')
         self.assertEqual(
             self.scraper.api_url,
-            'https://www.wohnraumkarte.de/api/getImmoList'
+            'https://www.deutsche-wohnen.com/api/deuwo-real-estate/list'
         )
         self.assertEqual(
             self.scraper.base_url,
@@ -33,7 +33,7 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
     def test_build_api_params(self):
         """Test API parameter building."""
         params = self.scraper._build_api_params(limit=50, offset=0)
-        
+
         self.assertEqual(params['rentType'], 'miete')
         self.assertEqual(params['city'], 'Berlin')
         self.assertEqual(params['immoType'], 'wohnung')
@@ -77,11 +77,11 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
         temp = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
         json.dump({'10115': ['Mitte']}, temp)
         temp.close()
-        
+
         try:
             resolver = BoroughResolver(temp.name)
             self.scraper.set_borough_resolver(resolver)
-            
+
             listing_data = {
                 'ort': 'Berlin',  # No OT
                 'plz': '10115'
@@ -122,15 +122,19 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
         self.assertEqual(rooms, '1')
 
     def test_build_listing_url(self):
-        """Test listing URL building."""
+        """Test listing URL building.
+
+        The new API returns slugs that already contain the ID, so we
+        just use the slug directly.
+        """
         listing_data = {
-            'slug': '2-zimmer-wohnung-in-berlin-mitte',
+            'slug': '2-zimmer-wohnung-in-berlin-mitte-89-12345',
             'wrk_id': '12345'
         }
         url = self.scraper._build_listing_url(listing_data)
         expected = (
             'https://www.deutsche-wohnen.com/mieten/mietangebote/'
-            '2-zimmer-wohnung-in-berlin-mitte-12345'
+            '2-zimmer-wohnung-in-berlin-mitte-89-12345'
         )
         self.assertEqual(url, expected)
 
@@ -150,11 +154,11 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
             'preis': '900',
             'groesse': '60',
             'anzahl_zimmer': '2',
-            'slug': 'test-listing'
+            'slug': 'test-listing-89-12345'
         }
-        
+
         listing = self.scraper._parse_listing(listing_data)
-        
+
         self.assertIsNotNone(listing)
         self.assertEqual(listing.source, 'deutschewohnen')
         self.assertEqual(listing.address, 'Teststr. 1, 10115 Berlin OT Mitte')
@@ -165,7 +169,7 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
         self.assertEqual(
             listing.link,
             'https://www.deutsche-wohnen.com/mieten/mietangebote/'
-            'test-listing-12345'
+            'test-listing-89-12345'
         )
         # Warm rent should be N/A as it's not fetched from detail pages
         self.assertEqual(listing.price_total, 'N/A')
@@ -177,7 +181,7 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
             'plz': '10115',
             'ort': 'Berlin OT Mitte'
         }
-        
+
         listing = self.scraper._parse_listing(listing_data)
         self.assertIsNone(listing)
 
@@ -192,11 +196,11 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
             ]
         }
         mock_get.return_value = mock_response
-        
+
         import requests
         session = requests.Session()
         batch = self.scraper._fetch_listings_batch(session, limit=2, offset=0)
-        
+
         self.assertEqual(len(batch), 2)
         self.assertEqual(batch[0]['wrk_id'], '1')
         self.assertEqual(batch[1]['wrk_id'], '2')
@@ -204,5 +208,3 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
-
