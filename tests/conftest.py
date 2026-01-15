@@ -30,7 +30,7 @@ def sample_listing() -> Listing:
         price_cold="800",
         price_total="1000",
         rooms="3",
-        wbs="No",
+        wbs=False,
     )
 
 
@@ -55,7 +55,7 @@ def sample_listing_factory():
             "price_cold": "800",
             "price_total": "1000",
             "rooms": "3",
-            "wbs": "No",
+            "wbs": False,
         }
         defaults.update(kwargs)
         return Listing(identifier=identifier, source=source, **defaults)

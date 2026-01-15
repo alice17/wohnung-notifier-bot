@@ -58,10 +58,7 @@
         "max": null
       },
       "wbs": {
-        "allowed_values": [
-          "nicht erforderlich",
-          "N/A"
-        ]
+        "has_wbs": false
       },
       // check data/plz_bezirk.json for the complete list
       "boroughs": {

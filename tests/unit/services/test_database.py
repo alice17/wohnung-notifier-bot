@@ -50,7 +50,7 @@ class TestDatabaseManager(unittest.TestCase):
             price_cold="800",
             price_total="1000",
             rooms="3",
-            wbs="No",
+            wbs=False,
         )
 
 
@@ -176,7 +176,7 @@ class TestSaveListing(TestDatabaseManager):
             price_cold="1200",
             price_total="1500",
             rooms="4",
-            wbs="Yes",
+            wbs=True,
         )
         self.db_manager.save_listing(updated_listing)
 
@@ -244,7 +244,7 @@ class TestSaveListings(TestDatabaseManager):
             price_cold="950",
             price_total="1200",
             rooms="3.5",
-            wbs="No",
+            wbs=False,
         )
         self.db_manager.save_listings({updated.identifier: updated})
 
@@ -656,7 +656,7 @@ class TestDeleteOldListings(TestDatabaseManager):
                 "500",
                 "600",
                 "2",
-                "No",
+                0,
             ),
         )
         conn.commit()
@@ -716,7 +716,7 @@ class TestDatabaseManagerIntegration(TestDatabaseManager):
             price_cold="900",
             price_total="1100",
             rooms="3",
-            wbs="Yes",
+            wbs=True,
         )
         self.assertTrue(self.db_manager.save_listing(updated))
         loaded = self.db_manager.get_listing_by_identifier(
@@ -779,7 +779,7 @@ class TestDatabaseManagerIntegration(TestDatabaseManager):
             price_cold="1500",
             price_total="1800",
             rooms="5",
-            wbs="WBS 180",
+            wbs=True,
         )
         self.db_manager.save_listing(updated)
 

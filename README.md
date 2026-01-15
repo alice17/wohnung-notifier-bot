@@ -87,7 +87,11 @@ You must create a `settings.json` file from the `settings.json.example`. This is
 -   `filters`:
     -   `enabled`: Set to `true` to enable filtering, `false` to get notified for *all* new listings.
     -   `min` / `max`: Set the desired range for price, square meters, and rooms. Use `null` if you don't want to set a lower or upper limit.
-    -   `wbs` / `boroughs`: The `allowed_values` list specifies which values are acceptable. The script will filter out any listing whose value is not in this list.
+    -   `wbs`: Filter listings based on WBS (Wohnberechtigungsschein) requirement:
+        -   `"has_wbs": true` — Show all listings (you have a WBS, so you can apply anywhere)
+        -   `"has_wbs": false` — Only show non-WBS listings (filter out apartments that require WBS)
+        -   Omit or leave empty `{}` — Show all listings (no WBS filtering)
+    -   `boroughs`: The `allowed_values` list specifies which Berlin boroughs are acceptable. The script will filter out any listing whose borough is not in this list.
 
 #### c) Configuring Auto-Apply (Optional)
 

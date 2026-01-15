@@ -93,7 +93,7 @@ class DatabaseManager:
             price_cold=row["price_cold"],
             price_total=row["price_total"],
             rooms=row["rooms"],
-            wbs=row["wbs"],
+            wbs=bool(row["wbs"]),
             identifier=row["identifier"],
         )
 
@@ -114,7 +114,7 @@ class DatabaseManager:
             price_cold TEXT NOT NULL,
             price_total TEXT NOT NULL,
             rooms TEXT NOT NULL,
-            wbs TEXT NOT NULL,
+            wbs INTEGER NOT NULL DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -140,19 +140,23 @@ class DatabaseManager:
 
     def _migrate_schema(self, cursor: sqlite3.Cursor) -> None:
         """
-        Migrates old schema by removing deprecated link column.
+        Migrates old schema to current version.
+        
+        Handles:
+        - Removing deprecated 'link' column
+        - Converting 'wbs' from TEXT to INTEGER (boolean)
 
         Args:
             cursor: Active database cursor.
         """
-        # Check if link column exists
         cursor.execute("PRAGMA table_info(listings)")
-        columns = [col[1] for col in cursor.fetchall()]
+        columns_info = cursor.fetchall()
+        columns = {col[1]: col[2] for col in columns_info}  # name -> type
 
-        if "link" in columns:
-            logger.info("Migrating database: removing deprecated 'link' column")
-            # SQLite doesn't support DROP COLUMN in older versions,
-            # so we recreate the table
+        needs_migration = "link" in columns or columns.get("wbs") == "TEXT"
+
+        if needs_migration:
+            logger.info("Migrating database schema...")
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS listings_new (
@@ -164,19 +168,22 @@ class DatabaseManager:
                     price_cold TEXT NOT NULL,
                     price_total TEXT NOT NULL,
                     rooms TEXT NOT NULL,
-                    wbs TEXT NOT NULL,
+                    wbs INTEGER NOT NULL DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """
             )
+            # Convert TEXT wbs to INTEGER: 'erforderlich' -> 1, else -> 0
             cursor.execute(
                 """
                 INSERT INTO listings_new 
                 (identifier, source, address, borough, sqm, price_cold, 
                  price_total, rooms, wbs, created_at, updated_at)
                 SELECT identifier, source, address, borough, sqm, price_cold, 
-                       price_total, rooms, wbs, created_at, updated_at
+                       price_total, rooms, 
+                       CASE WHEN LOWER(wbs) LIKE '%erforderlich%' THEN 1 ELSE 0 END,
+                       created_at, updated_at
                 FROM listings
             """
             )
@@ -228,7 +235,7 @@ class DatabaseManager:
             listing.price_cold,
             listing.price_total,
             listing.rooms,
-            listing.wbs,
+            int(listing.wbs),
         )
 
     def save_listings(self, listings: Dict[str, Listing]) -> bool:

@@ -92,11 +92,35 @@ class ListingFilter:
         return False
 
     def _is_filtered_by_wbs(self, listing: Listing) -> bool:
+        """
+        Filters listings based on WBS (housing certificate) requirement.
+        
+        Filter logic:
+        - wbs=true in config: Show all listings (user has WBS, can apply anywhere)
+        - wbs=false in config: Show only non-WBS listings (filter out WBS-required)
+        - wbs not set: Show all listings (no filtering)
+        
+        Args:
+            listing: The listing to check.
+            
+        Returns:
+            True if listing should be filtered out, False otherwise.
+        """
         rules = self.filters.get("properties", {}).get("wbs", {})
-        allowed_values = rules.get("allowed_values", [])
-        if allowed_values and listing.wbs.strip().lower() not in [v.lower() for v in allowed_values]:
-            logger.info(f"{Colors.YELLOW}FILTERED (WBS): '{listing.wbs}'{Colors.RESET}")
+        user_has_wbs = rules.get("has_wbs")
+        
+        if user_has_wbs is None:
+            return False
+        
+        # User has WBS: show all listings (can apply to both WBS and non-WBS)
+        if user_has_wbs:
+            return False
+        
+        # User doesn't have WBS: filter out listings that require WBS
+        if listing.wbs:
+            logger.info(f"{Colors.YELLOW}FILTERED (WBS): required{Colors.RESET}")
             return True
+        
         return False
 
     def _is_filtered_by_borough(self, listing: Listing) -> bool:

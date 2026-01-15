@@ -108,7 +108,7 @@ class TestListingFilter(unittest.TestCase):
             "price_cold": "800.00",
             "price_total": "1000.00",
             "rooms": "2.0",
-            "wbs": "N/A",
+            "wbs": False,
             "identifier": "https://example.com/listing/test-123",
         }
         defaults.update(kwargs)
@@ -214,11 +214,11 @@ class TestListingFilter(unittest.TestCase):
         config = self._create_config({
             "enabled": True,
             "properties": {
-                "wbs": {"allowed_values": ["required"]}
+                "wbs": {"has_wbs": False}
             }
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(wbs="N/A")
+        listing = self._create_listing(wbs=True)
 
         self.assertTrue(listing_filter.is_filtered(listing))
 
@@ -456,60 +456,41 @@ class TestListingFilter(unittest.TestCase):
 
     # Tests for _is_filtered_by_wbs
 
-    def test_is_filtered_by_wbs_no_allowed_values(self):
-        """Tests WBS filtering when no allowed values specified."""
+    def test_is_filtered_by_wbs_no_config(self):
+        """Tests WBS filtering when no config specified (show all)."""
         config = self._create_config({
             "enabled": True,
             "properties": {"wbs": {}}
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(wbs="N/A")
+        
+        # Both WBS and non-WBS listings should pass
+        self.assertFalse(listing_filter._is_filtered_by_wbs(self._create_listing(wbs=False)))
+        self.assertFalse(listing_filter._is_filtered_by_wbs(self._create_listing(wbs=True)))
 
-        self.assertFalse(listing_filter._is_filtered_by_wbs(listing))
-
-    def test_is_filtered_by_wbs_value_allowed(self):
-        """Tests WBS filtering with allowed value."""
+    def test_is_filtered_by_wbs_user_has_wbs_shows_all(self):
+        """Tests WBS filtering: has_wbs=True shows all listings."""
         config = self._create_config({
             "enabled": True,
-            "properties": {"wbs": {"allowed_values": ["required", "N/A"]}}
+            "properties": {"wbs": {"has_wbs": True}}
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(wbs="N/A")
+        
+        # User has WBS, can apply anywhere - show all listings
+        self.assertFalse(listing_filter._is_filtered_by_wbs(self._create_listing(wbs=True)))
+        self.assertFalse(listing_filter._is_filtered_by_wbs(self._create_listing(wbs=False)))
 
-        self.assertFalse(listing_filter._is_filtered_by_wbs(listing))
-
-    def test_is_filtered_by_wbs_value_not_allowed(self):
-        """Tests WBS filtering with value not in allowed list."""
+    def test_is_filtered_by_wbs_user_no_wbs_filters_wbs_required(self):
+        """Tests WBS filtering: has_wbs=False filters out WBS-required listings."""
         config = self._create_config({
             "enabled": True,
-            "properties": {"wbs": {"allowed_values": ["required"]}}
+            "properties": {"wbs": {"has_wbs": False}}
         })
         listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(wbs="N/A")
-
-        self.assertTrue(listing_filter._is_filtered_by_wbs(listing))
-
-    def test_is_filtered_by_wbs_case_insensitive(self):
-        """Tests WBS filtering is case insensitive."""
-        config = self._create_config({
-            "enabled": True,
-            "properties": {"wbs": {"allowed_values": ["REQUIRED"]}}
-        })
-        listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(wbs="required")
-
-        self.assertFalse(listing_filter._is_filtered_by_wbs(listing))
-
-    def test_is_filtered_by_wbs_with_whitespace(self):
-        """Tests WBS filtering handles whitespace correctly."""
-        config = self._create_config({
-            "enabled": True,
-            "properties": {"wbs": {"allowed_values": ["required"]}}
-        })
-        listing_filter = ListingFilter(config, None)
-        listing = self._create_listing(wbs="  required  ")
-
-        self.assertFalse(listing_filter._is_filtered_by_wbs(listing))
+        
+        # User has no WBS - filter out WBS-required listings
+        self.assertTrue(listing_filter._is_filtered_by_wbs(self._create_listing(wbs=True)))
+        self.assertFalse(listing_filter._is_filtered_by_wbs(self._create_listing(wbs=False)))
 
     # Tests for _is_filtered_by_borough
 

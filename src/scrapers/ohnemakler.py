@@ -226,6 +226,7 @@ class OhneMaklerScraper(BaseScraper):
             details['price_total'] = price_total
 
         details['source'] = self.name
+        details['wbs'] = False
         return Listing(**details)
 
     def _fetch_detail_page_pricing(

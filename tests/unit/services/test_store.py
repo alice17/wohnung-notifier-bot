@@ -49,7 +49,7 @@ class TestListingStore(unittest.TestCase):
             price_cold="800",
             price_total="1000",
             rooms="3",
-            wbs="No",
+            wbs=False,
         )
 
 
@@ -177,7 +177,7 @@ class TestListingStoreSave(TestListingStore):
             price_cold="1200",
             price_total="1500",
             rooms="4",
-            wbs="Yes",
+            wbs=True,
         )
         self.store.save({updated_listing.identifier: updated_listing})
 
@@ -256,7 +256,7 @@ class TestListingStoreIntegration(TestListingStore):
             price_cold="950",
             price_total="1150",
             rooms="3.5",
-            wbs="WBS 140",
+            wbs=True,
         )
 
         self.store.save({original_listing.identifier: original_listing})

@@ -26,7 +26,7 @@ class Listing:
     price_cold: str = "N/A"
     price_total: str = "N/A"
     rooms: str = "N/A"
-    wbs: str = "N/A"
+    wbs: bool = False
     identifier: Optional[str] = None
 
     def __post_init__(self):

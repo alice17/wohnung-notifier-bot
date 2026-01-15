@@ -173,6 +173,7 @@ class KleinanzeigenScraper(BaseScraper):
             sqm=size,
             price_cold=price,
             rooms=rooms,
+            wbs=False,
             identifier=url,
         )
 
@@ -257,6 +258,9 @@ class KleinanzeigenScraper(BaseScraper):
         """
         Extracts square meters and number of rooms from listing tags.
         
+        Handles German number format where comma is decimal separator 
+        (e.g., "138,01 m²" -> "138.01").
+        
         Args:
             listing_soup: BeautifulSoup object containing the listing HTML
             
@@ -266,9 +270,9 @@ class KleinanzeigenScraper(BaseScraper):
         size_element = listing_soup.select_one('.aditem-main--middle--tags')
         tags_text = size_element.text if size_element else ''
         
-        # Extract square meters (e.g., "85 m²" -> "85")
-        size_match = re.search(r'(\d+)\s*m²', tags_text)
-        size = size_match.group(1) if size_match else 'N/A'
+        # Extract square meters with optional decimal (e.g., "138,01 m²" -> "138.01")
+        size_match = re.search(r'(\d+(?:,\d+)?)\s*m²', tags_text)
+        size = self._normalize_german_number(size_match.group(1)) if size_match else 'N/A'
         
         # Extract number of rooms (e.g., "3 Zi." -> "3")
         rooms_match = re.search(r'(\d+)\s*Zi\.', tags_text)
