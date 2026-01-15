@@ -22,6 +22,9 @@ class DatabaseManager:
     apartment listings, with automatic schema creation and connection management.
     """
 
+    _SELECT_COLUMNS = """identifier, source, address, borough, sqm, 
+               price_cold, price_total, rooms, wbs"""
+
     _UPSERT_QUERY = """
     INSERT INTO listings 
     (identifier, source, address, borough, sqm, price_cold, 
@@ -199,25 +202,34 @@ class DatabaseManager:
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    self._UPSERT_QUERY,
-                    (
-                        listing.identifier,
-                        listing.source,
-                        listing.address,
-                        listing.borough,
-                        listing.sqm,
-                        listing.price_cold,
-                        listing.price_total,
-                        listing.rooms,
-                        listing.wbs,
-                    ),
-                )
+                cursor.execute(self._UPSERT_QUERY, self._listing_to_tuple(listing))
                 conn.commit()
                 return True
         except sqlite3.Error as e:
             logger.error(f"Failed to save listing {listing.identifier}: {e}")
             return False
+
+    def _listing_to_tuple(self, listing: Listing) -> tuple:
+        """
+        Converts a Listing object to a tuple for database operations.
+
+        Args:
+            listing: The Listing object to convert.
+
+        Returns:
+            Tuple of listing fields in database column order.
+        """
+        return (
+            listing.identifier,
+            listing.source,
+            listing.address,
+            listing.borough,
+            listing.sqm,
+            listing.price_cold,
+            listing.price_total,
+            listing.rooms,
+            listing.wbs,
+        )
 
     def save_listings(self, listings: Dict[str, Listing]) -> bool:
         """
@@ -240,21 +252,10 @@ class DatabaseManager:
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                for listing in listings.values():
-                    cursor.execute(
-                        self._UPSERT_QUERY,
-                        (
-                            listing.identifier,
-                            listing.source,
-                            listing.address,
-                            listing.borough,
-                            listing.sqm,
-                            listing.price_cold,
-                            listing.price_total,
-                            listing.rooms,
-                            listing.wbs,
-                        ),
-                    )
+                cursor.executemany(
+                    self._UPSERT_QUERY,
+                    [self._listing_to_tuple(lst) for lst in listings.values()],
+                )
                 conn.commit()
                 logger.info(f"Successfully saved {len(listings)} listings")
                 return True
@@ -269,11 +270,7 @@ class DatabaseManager:
         Returns:
             Dictionary mapping identifiers to Listing objects.
         """
-        query = """
-        SELECT identifier, source, address, borough, sqm, 
-               price_cold, price_total, rooms, wbs
-        FROM listings
-        """
+        query = f"SELECT {self._SELECT_COLUMNS} FROM listings"
 
         try:
             with self._get_connection() as conn:
@@ -301,12 +298,7 @@ class DatabaseManager:
         Returns:
             Listing object if found, None otherwise.
         """
-        query = """
-        SELECT identifier, source, address, borough, sqm, 
-               price_cold, price_total, rooms, wbs
-        FROM listings
-        WHERE identifier = ?
-        """
+        query = f"SELECT {self._SELECT_COLUMNS} FROM listings WHERE identifier = ?"
 
         try:
             with self._get_connection() as conn:
@@ -329,12 +321,7 @@ class DatabaseManager:
         Returns:
             Dictionary mapping identifiers to Listing objects for the source.
         """
-        query = """
-        SELECT identifier, source, address, borough, sqm, 
-               price_cold, price_total, rooms, wbs
-        FROM listings
-        WHERE source = ?
-        """
+        query = f"SELECT {self._SELECT_COLUMNS} FROM listings WHERE source = ?"
 
         try:
             with self._get_connection() as conn:
@@ -382,15 +369,15 @@ class DatabaseManager:
         if not identifiers:
             return True
 
-        query = "DELETE FROM listings WHERE identifier = ?"
+        placeholders = ",".join("?" * len(identifiers))
+        query = f"DELETE FROM listings WHERE identifier IN ({placeholders})"
 
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                for identifier in identifiers:
-                    cursor.execute(query, (identifier,))
+                cursor.execute(query, identifiers)
                 conn.commit()
-                logger.info(f"Deleted {len(identifiers)} listings")
+                logger.info(f"Deleted {cursor.rowcount} listings")
                 return True
         except sqlite3.Error as e:
             logger.error(f"Failed to delete listings: {e}")

@@ -90,9 +90,9 @@ class BaseApplier(ABC):
         Returns:
             True if this applier handles the listing's URL, False otherwise.
         """
-        if not listing.link or listing.link == "N/A":
+        if not listing.url or listing.url == "N/A":
             return False
-        return any(listing.link.startswith(pattern) for pattern in self.url_patterns)
+        return any(listing.url.startswith(pattern) for pattern in self.url_patterns)
 
     def is_configured(self) -> bool:
         """
