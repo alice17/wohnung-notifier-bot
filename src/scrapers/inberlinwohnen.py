@@ -74,7 +74,7 @@ class InBerlinWohnenScraper(BaseScraper):
         known_ids = self._extract_known_ids(known_listings) if known_listings else set()
         
         try:
-            with requests.get(self.url, headers=self.headers, timeout=20) as response:
+            with requests.get(self.url, headers=self.headers, timeout=(10, 40)) as response:
                 response.raise_for_status()
                 return self._parse_html_optimized(response.text, known_ids)
         except requests.exceptions.RequestException as e:
