@@ -113,8 +113,9 @@ class TestBerlinovoScraper(unittest.TestCase):
         mock_response.raise_for_status = Mock()
         mock_get.return_value = mock_response
 
-        listings = self.scraper.get_current_listings()
+        listings, seen_known_ids = self.scraper.get_current_listings()
         self.assertEqual(len(listings), 0)
+        self.assertEqual(len(seen_known_ids), 0)
 
     @patch("src.scrapers.berlinovo.requests.get")
     def test_get_current_listings_filters_known(self, mock_get):
@@ -140,11 +141,15 @@ class TestBerlinovoScraper(unittest.TestCase):
             "https://www.berlinovo.de/de/wohnung/test-listing-1": Mock()
         }
 
-        listings = self.scraper.get_current_listings(known_listings)
+        listings, seen_known_ids = self.scraper.get_current_listings(known_listings)
 
-        # Should only return the second listing
+        # Should only return the second listing (first one is filtered as known)
         self.assertNotIn(
             "https://www.berlinovo.de/de/wohnung/test-listing-1", listings
+        )
+        # The known listing should be in seen_known_ids
+        self.assertIn(
+            "https://www.berlinovo.de/de/wohnung/test-listing-1", seen_known_ids
         )
 
     @patch("src.scrapers.berlinovo.requests.get")
@@ -188,6 +193,60 @@ class TestBerlinovoScraper(unittest.TestCase):
         self.assertEqual(self.scraper._normalize_rooms_format("2,5"), "2.5")
         self.assertEqual(self.scraper._normalize_rooms_format("3"), "3")
         self.assertEqual(self.scraper._normalize_rooms_format("N/A"), "N/A")
+
+
+class TestBerlinovoScraperRoomExtraction(unittest.TestCase):
+    """Test cases for room extraction from various formats."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.scraper = BerlinovoScraper("berlinovo")
+
+    def test_extract_rooms_from_title_compound_word(self):
+        """Test room extraction when 'Zimmer' appears in title compound word."""
+        from unittest.mock import Mock
+
+        mock_card = Mock()
+        mock_card.select_one.return_value = None
+        mock_card.get_text.return_value = (
+            "Schöne 2-Zimmer-Wohnung mit Balkon in Staaken zu vermieten!"
+        )
+
+        rooms = self.scraper._extract_rooms(mock_card)
+        self.assertEqual(rooms, "2")
+
+    def test_extract_rooms_from_label_below(self):
+        """Test room extraction when value is on line below label."""
+        from unittest.mock import Mock
+
+        mock_card = Mock()
+        mock_card.select_one.return_value = None
+        mock_card.get_text.return_value = "Zimmer\n2,0\n"
+
+        rooms = self.scraper._extract_rooms(mock_card)
+        self.assertEqual(rooms, "2,0")
+
+    def test_extract_rooms_with_decimal(self):
+        """Test room extraction with half rooms (e.g., 2.5)."""
+        from unittest.mock import Mock
+
+        mock_card = Mock()
+        mock_card.select_one.return_value = None
+        mock_card.get_text.return_value = "Große 2,5-Zimmer-Wohnung"
+
+        rooms = self.scraper._extract_rooms(mock_card)
+        self.assertEqual(rooms, "2,5")
+
+    def test_extract_rooms_with_colon(self):
+        """Test room extraction with colon separator."""
+        from unittest.mock import Mock
+
+        mock_card = Mock()
+        mock_card.select_one.return_value = None
+        mock_card.get_text.return_value = "Zimmer: 3"
+
+        rooms = self.scraper._extract_rooms(mock_card)
+        self.assertEqual(rooms, "3")
 
 
 class TestBerlinovoScraperIntegration(unittest.TestCase):

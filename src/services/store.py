@@ -5,7 +5,7 @@ The ListingStore provides a high-level interface for listing persistence,
 now backed by a SQLite database for improved performance and reliability.
 """
 import logging
-from typing import Dict
+from typing import Dict, List
 
 from src.core.listing import Listing
 from src.services.database import DatabaseManager
@@ -62,6 +62,21 @@ class ListingStore:
                 logger.info(f"Saved {len(listings)} listings to database")
         except Exception as e:
             logger.error(f"Error saving listings to database: {e}")
+
+    def touch(self, identifiers: List[str]) -> int:
+        """
+        Updates the updated_at timestamp for active listings.
+
+        This marks listings as "still seen" on websites, preventing
+        them from being cleaned up as stale by cleanup_old_listings().
+
+        Args:
+            identifiers: List of listing identifiers still seen on websites.
+
+        Returns:
+            Number of listings updated.
+        """
+        return self.db_manager.touch_listings(identifiers)
 
     def cleanup_old_listings(self, max_age_days: int = 2) -> int:
         """

@@ -18,13 +18,13 @@ Limitations:
 """
 import logging
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 
 import requests
 from bs4 import BeautifulSoup
 
 from src.core.listing import Listing
-from src.scrapers.base import BaseScraper
+from src.scrapers.base import BaseScraper, ScraperResult
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class BerlinovoScraper(BaseScraper):
 
     def get_current_listings(
         self, known_listings: Optional[Dict[str, Listing]] = None
-    ) -> Dict[str, Listing]:
+    ) -> ScraperResult:
         """
         Fetches all apartment listings from berlinovo.de.
 
@@ -64,13 +64,16 @@ class BerlinovoScraper(BaseScraper):
             known_listings: Previously seen listings (used for filtering only).
 
         Returns:
-            Dictionary mapping identifiers to Listing objects (new listings only).
+            Tuple containing:
+            - Dictionary mapping identifiers to new Listing objects
+            - Set of known listing identifiers that were seen (still active)
 
         Raises:
             requests.exceptions.RequestException: If the HTTP request fails.
         """
-        known_ids = set(known_listings.keys()) if known_listings else set()
+        known_ids: Set[str] = set(known_listings.keys()) if known_listings else set()
         all_listings: Dict[str, Listing] = {}
+        seen_known_ids: Set[str] = set()
 
         try:
             page = 0
@@ -80,13 +83,12 @@ class BerlinovoScraper(BaseScraper):
                 if not page_listings:
                     break
 
-                # Filter to only new listings
-                new_on_page = {
-                    lid: listing
-                    for lid, listing in page_listings.items()
-                    if lid not in known_ids
-                }
-                all_listings.update(new_on_page)
+                # Track seen known listings and filter to only new listings
+                for lid, listing in page_listings.items():
+                    if lid in known_ids:
+                        seen_known_ids.add(lid)
+                    else:
+                        all_listings[lid] = listing
 
                 # Check if there might be more pages
                 if len(page_listings) < 10:
@@ -99,7 +101,7 @@ class BerlinovoScraper(BaseScraper):
             else:
                 logger.debug("No new listings found on berlinovo.de")
 
-            return all_listings
+            return all_listings, seen_known_ids
 
         except requests.exceptions.RequestException as exc:
             logger.error(f"Error fetching berlinovo.de: {exc}")
@@ -204,7 +206,7 @@ class BerlinovoScraper(BaseScraper):
             )
 
             # Extract rooms
-            rooms = self._extract_field_value(card, ["Zimmer", "zimmer"])
+            rooms = self._extract_rooms(card)
             if rooms:
                 rooms = self._normalize_rooms_format(rooms.replace(",", "."))
 
@@ -289,6 +291,58 @@ class BerlinovoScraper(BaseScraper):
         if zip_match:
             return self._get_borough_from_zip(zip_match.group(1))
         return "N/A"
+
+    def _extract_rooms(self, card: BeautifulSoup) -> Optional[str]:
+        """
+        Extracts room count from a listing card.
+
+        Uses multiple strategies to find the room count, including CSS selectors
+        and regex patterns. Validates that extracted values are numeric.
+
+        Args:
+            card: BeautifulSoup element representing a listing card.
+
+        Returns:
+            Room count as string or None if not found.
+        """
+        # Try CSS selectors for room fields
+        room_selectors = [
+            ".field--name-field-zimmer",
+            ".field--name-field-rooms",
+            "[class*='zimmer']",
+            "[class*='rooms']",
+        ]
+
+        for selector in room_selectors:
+            elem = card.select_one(selector)
+            if elem:
+                text = elem.get_text().strip()
+                match = re.search(r"(\d+(?:[.,]\d+)?)", text)
+                if match:
+                    return match.group(1)
+
+        # Look for patterns like "2 Zimmer", "2-Zimmer", "Zimmer: 2"
+        text = card.get_text()
+
+        # Pattern: "X Zimmer" or "X-Zimmer" (number before Zimmer)
+        match = re.search(r"(\d+(?:[.,]\d+)?)\s*[-\s]?\s*[Zz]immer(?!\w)", text)
+        if match:
+            return match.group(1)
+
+        # Pattern: "Zimmer: X" or "Zimmer X" (label followed by number)
+        match = re.search(r"[Zz]immer\s*:?\s*(\d+(?:[.,]\d+)?)", text)
+        if match:
+            return match.group(1)
+
+        # Fall back to field value extraction with validation
+        value = self._extract_field_value(card, ["Zimmer", "zimmer"])
+        if value:
+            # Validate that the value starts with a number
+            match = re.match(r"^(\d+(?:[.,]\d+)?)", value.strip())
+            if match:
+                return match.group(1)
+
+        return None
 
     def _extract_field_value(
         self, card: BeautifulSoup, field_names: list

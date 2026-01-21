@@ -288,8 +288,6 @@ class DatabaseManager:
                 listings = {
                     row["identifier"]: self._row_to_listing(row) for row in rows
                 }
-
-                logger.info(f"Loaded {len(listings)} listings from database")
                 return listings
         except sqlite3.Error as e:
             logger.error(f"Failed to load listings: {e}")
@@ -430,6 +428,40 @@ class DatabaseManager:
         except sqlite3.Error as e:
             logger.error(f"Failed to clear listings: {e}")
             return False
+
+    def touch_listings(self, identifiers: List[str]) -> int:
+        """
+        Updates the updated_at timestamp for listings that are still active.
+
+        This marks listings as "still seen" on the source websites,
+        preventing them from being cleaned up as stale.
+
+        Args:
+            identifiers: List of listing identifiers to touch.
+
+        Returns:
+            Number of listings updated.
+        """
+        if not identifiers:
+            return 0
+
+        placeholders = ",".join("?" * len(identifiers))
+        query = f"""
+            UPDATE listings 
+            SET updated_at = CURRENT_TIMESTAMP
+            WHERE identifier IN ({placeholders})
+        """
+
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, identifiers)
+                conn.commit()
+                updated_count = cursor.rowcount
+                return updated_count
+        except sqlite3.Error as e:
+            logger.error(f"Failed to touch listings: {e}")
+            return 0
 
     def delete_old_listings(self, max_age_days: int = 2) -> int:
         """

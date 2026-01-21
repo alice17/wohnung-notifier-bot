@@ -284,9 +284,10 @@ class TestVonoviaScraper(unittest.TestCase):
         }
         mock_get.return_value = mock_response
 
-        listings = self.scraper.get_current_listings()
+        listings, seen_known_ids = self.scraper.get_current_listings()
 
         self.assertEqual(len(listings), 2)
+        self.assertEqual(len(seen_known_ids), 0)
 
     @patch('requests.Session.get')
     def test_get_current_listings_early_termination(self, mock_get):
@@ -324,10 +325,12 @@ class TestVonoviaScraper(unittest.TestCase):
         )
         known_listings = {known_url: Mock()}
 
-        listings = self.scraper.get_current_listings(known_listings)
+        listings, seen_known_ids = self.scraper.get_current_listings(known_listings)
 
         # Should only return the first listing (stops at known listing)
         self.assertEqual(len(listings), 1)
+        # The known listing should be in seen_known_ids
+        self.assertIn(known_url, seen_known_ids)
 
     @patch('requests.Session.get')
     def test_get_current_listings_empty_response(self, mock_get):
@@ -336,9 +339,10 @@ class TestVonoviaScraper(unittest.TestCase):
         mock_response.json.return_value = {'results': []}
         mock_get.return_value = mock_response
 
-        listings = self.scraper.get_current_listings()
+        listings, seen_known_ids = self.scraper.get_current_listings()
 
         self.assertEqual(len(listings), 0)
+        self.assertEqual(len(seen_known_ids), 0)
 
 
 if __name__ == '__main__':

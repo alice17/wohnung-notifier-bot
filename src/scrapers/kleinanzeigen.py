@@ -18,7 +18,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from src.core.listing import Listing
-from src.scrapers.base import BaseScraper
+from src.scrapers.base import BaseScraper, ScraperResult
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +55,9 @@ class KleinanzeigenScraper(BaseScraper):
 
     def get_current_listings(
         self, known_listings: Optional[Dict[str, Listing]] = None
-    ) -> Dict[str, Listing]:
+    ) -> ScraperResult:
         """
-        Fetches the website and returns a dictionary of new listings.
+        Fetches the website and returns new listings and seen known IDs.
         
         Optimized for live updates: uses early termination when a known
         listing is encountered. Since listings are sorted newest first
@@ -68,13 +68,16 @@ class KleinanzeigenScraper(BaseScraper):
             known_listings: Previously seen listings for early termination.
             
         Returns:
-            Dictionary mapping identifiers to Listing objects (new listings only).
+            Tuple containing:
+            - Dictionary mapping identifiers to new Listing objects
+            - Set of known listing identifiers that were seen (still active)
             
         Raises:
             requests.exceptions.RequestException: If the HTTP request fails.
         """
         known_ids: Set[str] = set(known_listings.keys()) if known_listings else set()
         listings_data: Dict[str, Listing] = {}
+        seen_known_ids: Set[str] = set()
         session = requests.Session()
         session.headers.update(self.headers)
 
@@ -95,6 +98,7 @@ class KleinanzeigenScraper(BaseScraper):
                 identifier = self._extract_identifier_fast(listing_soup)
                 
                 if identifier and identifier in known_ids:
+                    seen_known_ids.add(identifier)
                     logger.debug(
                         f"Hit known listing '{identifier}', stopping (newest-first order)"
                     )
@@ -115,7 +119,7 @@ class KleinanzeigenScraper(BaseScraper):
             logger.error(f"An error occurred during the request for {self.url}: {e}")
             raise
 
-        return listings_data
+        return listings_data, seen_known_ids
 
     def _extract_identifier_fast(self, listing_soup: BeautifulSoup) -> Optional[str]:
         """

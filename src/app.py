@@ -143,21 +143,24 @@ class App:
         except Exception as notify_err:
             logger.error(f"Failed to send error notification to Telegram: {notify_err}")
 
-    def _get_all_current_listings(self) -> Tuple[Dict[str, Dict[str, Listing]], Set[str]]:
+    def _get_all_current_listings(
+        self,
+    ) -> Tuple[Dict[str, Dict[str, Listing]], Set[str], Set[str]]:
         """
         Fetches listings from all configured scrapers using the ScraperRunner.
 
         Returns:
             A tuple containing:
-            - A dictionary mapping scraper names to their current listings.
+            - A dictionary mapping scraper names to their new listings.
             - A set of names of scrapers that failed.
+            - A set of all seen known listing identifiers (still active).
         """
         return self.scraper_runner.run(self.known_listings)
 
     def _initialize_baseline(self) -> None:
         """Fetches the initial set of listings to establish a baseline."""
         logger.info("No known listings file found. Fetching baseline.")
-        initial_listings_by_scraper, _ = self._get_all_current_listings()
+        initial_listings_by_scraper, _, _ = self._get_all_current_listings()
 
         for listings in initial_listings_by_scraper.values():
             self.known_listings.update(listings)
@@ -180,7 +183,15 @@ class App:
             # Remove deleted listings from in-memory cache
             self.known_listings = self.store.load()
         
-        current_listings_by_scraper, failed_scrapers = self._get_all_current_listings()
+        current_listings_by_scraper, failed_scrapers, seen_known_ids = (
+            self._get_all_current_listings()
+        )
+
+        # Touch listings that are still active on websites
+        if seen_known_ids:
+            touched_count = self.store.touch(list(seen_known_ids))
+            if touched_count > 0:
+                logger.debug(f"Touched {touched_count} existing listings as still active")
 
         if not any(current_listings_by_scraper.values()) and self.known_listings:
             logger.info("Current check returned no listings.")

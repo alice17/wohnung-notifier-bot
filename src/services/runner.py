@@ -14,6 +14,7 @@ from typing import List, Dict, Tuple, Set
 
 from src.core.listing import Listing
 from src.scrapers import BaseScraper
+from src.scrapers.base import ScraperResult
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class ScraperRunner:
 
     def run(
         self, known_listings: Dict[str, Listing]
-    ) -> Tuple[Dict[str, Dict[str, Listing]], Set[str]]:
+    ) -> Tuple[Dict[str, Dict[str, Listing]], Set[str], Set[str]]:
         """
         Executes all configured scrapers concurrently and returns their findings.
         
@@ -58,14 +59,16 @@ class ScraperRunner:
 
         Returns:
             A tuple containing:
-            - A dictionary mapping scraper names to their current listings.
+            - A dictionary mapping scraper names to their new listings.
             - A set of names of scrapers that failed during execution.
+            - A set of all seen known listing identifiers (still active).
         """
         all_listings_by_scraper: Dict[str, Dict[str, Listing]] = {}
         failed_scrapers: Set[str] = set()
+        all_seen_known_ids: Set[str] = set()
 
         if not self.scrapers:
-            return all_listings_by_scraper, failed_scrapers
+            return all_listings_by_scraper, failed_scrapers, all_seen_known_ids
 
         worker_count = min(self.max_workers, len(self.scrapers))
         logger.info(f"Running {len(self.scrapers)} scraper(s) concurrently with {worker_count} workers")
@@ -79,8 +82,9 @@ class ScraperRunner:
             for future in as_completed(future_to_scraper):
                 scraper = future_to_scraper[future]
                 try:
-                    listings = future.result()
+                    listings, seen_known_ids = future.result()
                     all_listings_by_scraper[scraper.name] = listings
+                    all_seen_known_ids.update(seen_known_ids)
                     logger.info(
                         f"Scraper '{scraper.name}' returned {len(listings)} new listing(s)."
                     )
@@ -88,13 +92,13 @@ class ScraperRunner:
                     logger.error(f"Error getting listings from {scraper.name}: {exc}")
                     failed_scrapers.add(scraper.name)
 
-        return all_listings_by_scraper, failed_scrapers
+        return all_listings_by_scraper, failed_scrapers, all_seen_known_ids
 
     def _run_single_scraper(
         self, scraper: BaseScraper, known_listings: Dict[str, Listing]
-    ) -> Dict[str, Listing]:
+    ) -> ScraperResult:
         """
-        Executes a single scraper and returns its listings.
+        Executes a single scraper and returns its results.
         
         This method is designed to be called from a thread pool.
         
@@ -103,7 +107,9 @@ class ScraperRunner:
             known_listings: Previously seen listings for early termination.
             
         Returns:
-            Dictionary mapping listing identifiers to Listing objects.
+            Tuple containing:
+            - Dictionary mapping listing identifiers to new Listing objects
+            - Set of seen known listing identifiers (still active)
             
         Raises:
             Exception: Any exception raised by the scraper is propagated.

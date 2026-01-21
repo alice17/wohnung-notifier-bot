@@ -22,7 +22,7 @@ from typing import Dict, Optional, Set
 import requests
 
 from src.core.listing import Listing
-from src.scrapers.base import BaseScraper
+from src.scrapers.base import BaseScraper, ScraperResult
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class DeutscheWohnenScraper(BaseScraper):
 
     def get_current_listings(
         self, known_listings: Optional[Dict[str, Listing]] = None
-    ) -> Dict[str, Listing]:
+    ) -> ScraperResult:
         """
         Fetches apartment listings from the API (optimized for live updates).
 
@@ -69,13 +69,16 @@ class DeutscheWohnenScraper(BaseScraper):
             known_listings: Previously seen listings for early termination.
 
         Returns:
-            Dictionary mapping identifiers to Listing objects (new listings only).
+            Tuple containing:
+            - Dictionary mapping identifiers to new Listing objects
+            - Set of known listing identifiers that were seen (still active)
 
         Raises:
             requests.exceptions.RequestException: If the HTTP request fails.
         """
         known_ids: Set[str] = set(known_listings.keys()) if known_listings else set()
         listings_data: Dict[str, Listing] = {}
+        seen_known_ids: Set[str] = set()
         session = requests.Session()
         session.headers.update(self.headers)
 
@@ -92,6 +95,7 @@ class DeutscheWohnenScraper(BaseScraper):
                 identifier = self._extract_identifier_fast(listing_data)
 
                 if identifier and identifier in known_ids:
+                    seen_known_ids.add(identifier)
                     logger.debug(
                         f"Hit known listing '{identifier}', stopping (newest-first order)"
                     )
@@ -113,7 +117,7 @@ class DeutscheWohnenScraper(BaseScraper):
             )
             raise
 
-        return listings_data
+        return listings_data, seen_known_ids
 
     def _extract_identifier_fast(self, listing_data: dict) -> Optional[str]:
         """

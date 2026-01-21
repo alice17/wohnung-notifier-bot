@@ -4,13 +4,16 @@ This module defines the BaseScraper abstract base class.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, TYPE_CHECKING
+from typing import Dict, Optional, Set, Tuple, TYPE_CHECKING
 
 from src.core.constants import DEFAULT_USER_AGENT
 from src.core.listing import Listing
 
 if TYPE_CHECKING:
     from src.services import BoroughResolver
+
+# Type alias for scraper results: (new_listings, seen_known_ids)
+ScraperResult = Tuple[Dict[str, Listing], Set[str]]
 
 
 class BaseScraper(ABC):
@@ -34,8 +37,18 @@ class BaseScraper(ABC):
     @abstractmethod
     def get_current_listings(
         self, known_listings: Optional[Dict[str, Listing]] = None
-    ) -> Dict[str, Listing]:
-        """Fetches the website and returns a dictionary of listings."""
+    ) -> ScraperResult:
+        """
+        Fetches the website and returns new listings and seen known IDs.
+
+        Args:
+            known_listings: Previously seen listings for early termination.
+
+        Returns:
+            Tuple containing:
+            - Dictionary mapping identifiers to new Listing objects
+            - Set of known listing identifiers that were seen (still active)
+        """
         raise NotImplementedError
 
     def _get_borough_from_zip(self, zip_code: str) -> str:

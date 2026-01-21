@@ -19,7 +19,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from src.core.listing import Listing
-from src.scrapers.base import BaseScraper
+from src.scrapers.base import BaseScraper, ScraperResult
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +46,9 @@ class OhneMaklerScraper(BaseScraper):
 
     def get_current_listings(
         self, known_listings: Optional[Dict[str, Listing]] = None
-    ) -> Dict[str, Listing]:
+    ) -> ScraperResult:
         """
-        Fetches the website and returns a dictionary of new listings.
+        Fetches the website and returns new listings and seen known IDs.
         
         Optimized for live updates: uses early termination when a known
         listing is encountered. Since listings typically appear newest first,
@@ -58,7 +58,9 @@ class OhneMaklerScraper(BaseScraper):
             known_listings: Previously seen listings for early termination.
             
         Returns:
-            Dictionary mapping identifiers to Listing objects (new listings only).
+            Tuple containing:
+            - Dictionary mapping identifiers to new Listing objects
+            - Set of known listing identifiers that were seen (still active)
             
         Raises:
             requests.exceptions.RequestException: If the HTTP request fails.
@@ -75,7 +77,7 @@ class OhneMaklerScraper(BaseScraper):
 
     def _parse_html_optimized(
         self, html_content: str, known_ids: Set[str]
-    ) -> Dict[str, Listing]:
+    ) -> ScraperResult:
         """
         Parses HTML with early termination optimization.
         
@@ -87,16 +89,19 @@ class OhneMaklerScraper(BaseScraper):
             known_ids: Set of known listing identifiers.
             
         Returns:
-            Dictionary of new listings only.
+            Tuple containing:
+            - Dictionary of new listings only
+            - Set of known listing identifiers that were seen (still active)
         """
         soup = BeautifulSoup(html_content, 'lxml')
         listings_data: Dict[str, Listing] = {}
+        seen_known_ids: Set[str] = set()
 
         listing_items = soup.find_all('a', href=re.compile(r'^/immobilie/\d+/$'))
         
         if not listing_items:
             logger.warning("No listing items found on the page.")
-            return {}
+            return {}, set()
 
         logger.debug(f"Found {len(listing_items)} listings on page.")
 
@@ -106,6 +111,7 @@ class OhneMaklerScraper(BaseScraper):
             identifier = self._extract_identifier_fast(item_soup)
             
             if identifier and identifier in known_ids:
+                seen_known_ids.add(identifier)
                 logger.debug(
                     f"Hit known listing '{identifier}', stopping (newest-first order)"
                 )
@@ -124,7 +130,7 @@ class OhneMaklerScraper(BaseScraper):
         else:
             logger.debug("No new listings found on ohne-makler.net")
 
-        return listings_data
+        return listings_data, seen_known_ids
 
     def _extract_identifier_fast(self, listing_soup: BeautifulSoup) -> Optional[str]:
         """

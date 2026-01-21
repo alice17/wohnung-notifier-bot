@@ -26,7 +26,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from src.core.listing import Listing
-from src.scrapers.base import BaseScraper
+from src.scrapers.base import BaseScraper, ScraperResult
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +54,9 @@ class InBerlinWohnenScraper(BaseScraper):
 
     def get_current_listings(
         self, known_listings: Optional[Dict[str, Listing]] = None
-    ) -> Dict[str, Listing]:
+    ) -> ScraperResult:
         """
-        Fetches the website and returns a dictionary of listings.
+        Fetches the website and returns new listings and seen known IDs.
         
         Optimized for live updates: uses early termination when a known
         listing is encountered. Since listings are sorted newest first,
@@ -66,7 +66,9 @@ class InBerlinWohnenScraper(BaseScraper):
             known_listings: Previously seen listings for early termination.
             
         Returns:
-            Dictionary mapping identifiers to Listing objects.
+            Tuple containing:
+            - Dictionary mapping identifiers to new Listing objects
+            - Set of known listing identifiers that were seen (still active)
             
         Raises:
             requests.exceptions.RequestException: If the HTTP request fails.
@@ -101,7 +103,7 @@ class InBerlinWohnenScraper(BaseScraper):
 
     def _parse_html_optimized(
         self, html_content: str, known_ids: Set[str]
-    ) -> Dict[str, Listing]:
+    ) -> ScraperResult:
         """
         Parses HTML with early termination optimization.
         
@@ -113,17 +115,20 @@ class InBerlinWohnenScraper(BaseScraper):
             known_ids: Set of known listing identifiers.
             
         Returns:
-            Dictionary of new listings only.
+            Tuple containing:
+            - Dictionary of new listings only
+            - Set of known listing identifiers that were seen (still active)
         """
         soup = BeautifulSoup(html_content, 'lxml')
         listings_data: Dict[str, Listing] = {}
+        seen_known_ids: Set[str] = set()
 
         listings_container = soup.select_one(self.LISTINGS_CONTAINER_SELECTOR)
         if not listings_container:
             logger.error(
                 f"Could not find listing container '{self.LISTINGS_CONTAINER_SELECTOR}'"
             )
-            return {}
+            return {}, set()
 
         listing_items = listings_container.select(self.LISTING_ITEM_SELECTOR)
         if not listing_items:
@@ -134,7 +139,7 @@ class InBerlinWohnenScraper(BaseScraper):
                     f"Container found, but no items matching "
                     f"'{self.LISTING_ITEM_SELECTOR}'."
                 )
-            return {}
+            return {}, set()
 
         new_count = 0
         for item_soup in listing_items:
@@ -142,6 +147,8 @@ class InBerlinWohnenScraper(BaseScraper):
             identifier = self._extract_identifier_fast(item_soup)
             
             if identifier and identifier in known_ids:
+                # Track this known listing as still active
+                seen_known_ids.add(identifier)
                 # Early termination: listings are newest first
                 logger.debug(
                     f"Hit known listing '{identifier}', stopping (newest-first order)"
@@ -163,7 +170,7 @@ class InBerlinWohnenScraper(BaseScraper):
         else:
             logger.debug("No new listings found on inberlinwohnen.de")
 
-        return listings_data
+        return listings_data, seen_known_ids
 
     def _extract_identifier_fast(self, listing_soup: BeautifulSoup) -> Optional[str]:
         """
