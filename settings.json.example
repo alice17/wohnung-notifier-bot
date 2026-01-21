@@ -26,6 +26,9 @@
     },
     "vonovia": {
       "enabled": true
+    },
+    "berlinovo": {
+      "enabled": true
     }
   },
   "appliers": {
