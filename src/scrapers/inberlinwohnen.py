@@ -247,7 +247,7 @@ class InBerlinWohnenScraper(BaseScraper):
         elif "Zimmeranzahl:" in field_label:
             details['rooms'] = self._normalize_rooms_format(dd_text)
         elif "WBS:" in field_label:
-            details['wbs'] = 'erforderlich' in dd_text.lower()
+            details['wbs'] =  not ('nicht erforderlich' in dd_text.lower())
 
     def _extract_borough_from_address(
         self, address_text: str, details: Dict[str, str]
