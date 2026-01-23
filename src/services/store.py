@@ -59,7 +59,6 @@ class ListingStore:
         try:
             if listings:
                 self.db_manager.save_listings(listings)
-                logger.info(f"Saved {len(listings)} listings to database")
         except Exception as e:
             logger.error(f"Error saving listings to database: {e}")
 
