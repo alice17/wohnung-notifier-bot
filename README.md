@@ -171,7 +171,7 @@ The application uses SQLite to store known listings, providing better performanc
 
 ### Overview
 
-Starting from the latest version, the scraper uses a SQLite database (`listings.db`) as its primary storage backend. This modern storage solution offers significant advantages over the previous JSON-based approach, including indexed queries for faster lookups, transaction safety for data integrity, and efficient batch operations. The database automatically tracks metadata such as when each listing was first seen and last updated, making it easier to analyze listing patterns and manage the dataset. The database schema is designed specifically for apartment listings with proper indexing on frequently-queried columns, ensuring optimal performance even with thousands of listings. For detailed information about the database structure, operations, and advanced usage, refer to [DATABASE.md](DATABASE.md).
+Starting from the latest version, the scraper uses a SQLite database (`listings.db`) as its primary storage backend. This modern storage solution offers significant advantages over the previous JSON-based approach, including indexed queries for faster lookups, transaction safety for data integrity, and efficient batch operations. The database automatically tracks metadata such as when each listing was first seen and last updated, making it easier to analyze listing patterns and manage the dataset. The database schema is designed specifically for apartment listings with proper indexing on frequently-queried columns, ensuring optimal performance even with thousands of listings.
 
 ### Database Location
 
@@ -214,5 +214,5 @@ A `Containerfile` is included for easy containerized deployment.
 
 ## Disclaimer
 
--   **Polling Frequency:** Be respectful. Do not set the `poll_interval_seconds` too low. A 120-300 second (2-5 minute) interval is effective and won't spam the websites' servers.
+-   **Polling Frequency:** Be respectful. Do not set the `poll_interval_seconds` too low. A 120-300 second (2-5 minute) interval is effective and won't spam the websites' servers. From personal experience, **immowelt.de will block your IP** if you poll more frequently than every 5 minutes.
 -   **Website Changes:** This script relies on the websites' HTML structure. If any of the supported websites changes its layout, the corresponding scraper may break and will need to be updated.
