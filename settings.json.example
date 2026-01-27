@@ -29,6 +29,9 @@
     },
     "berlinovo": {
       "enabled": true
+    },
+    "sparkasse": {
+      "enabled": true
     }
   },
   "appliers": {

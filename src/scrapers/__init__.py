@@ -8,6 +8,7 @@ from .immowelt import ImmoweltScraper
 from .inberlinwohnen import InBerlinWohnenScraper
 from .kleinanzeigen import KleinanzeigenScraper
 from .ohnemakler import OhneMaklerScraper
+from .sparkasse import SparkasseScraper
 from .vonovia import VonoviaScraper
 
 # A dictionary to map scraper names to their classes
@@ -18,5 +19,6 @@ SCRAPER_CLASSES = {
     "kleinanzeigen": KleinanzeigenScraper,
     "ohnemakler": OhneMaklerScraper,
     "deutschewohnen": DeutscheWohnenScraper,
+    "sparkasse": SparkasseScraper,
     "vonovia": VonoviaScraper,
 }

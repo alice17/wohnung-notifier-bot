@@ -4,7 +4,7 @@
 ![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/alice17/a61e9c704ca8a2e3d5a33aa58a89e625/raw/coverage-badge.json)
 ![Berlin](https://img.shields.io/badge/🏠-Berlin-black)
 
-A Python script that monitors multiple German real estate websites (including `inberlinwohnen.de`, `immowelt.de`, `kleinanzeigen.de`, `ohne-makler.net`, `deutsche-wohnen.com`, `vonovia.de`, and `berlinovo.de`) for new apartment listings, filters them based on your criteria, and sends instant notifications via Telegram.
+A Python script that monitors multiple German real estate websites (including `inberlinwohnen.de`, `immowelt.de`, `kleinanzeigen.de`, `ohne-makler.net`, `deutsche-wohnen.com`, `vonovia.de`, `berlinovo.de`, and `immobilien.sparkasse.de`) for new apartment listings, filters them based on your criteria, and sends instant notifications via Telegram.
 
 -----
 
@@ -18,7 +18,7 @@ While it works and I use it myself, expect some rough edges. Contributions and f
 
 ## Key Features
 
--   **Multi-Website Support:** Natively scrapes listings from `inberlinwohnen.de`, `immowelt.de`, `kleinanzeigen.de`, `ohne-makler.net`, `deutsche-wohnen.com`, `vonovia.de`, and `berlinovo.de`. Note that `inberlinwohnen.de` is a portal that aggregates listings from Berlin's state-owned housing companies: Gewobag, HOWOGE, WBM, Gesobau, and Stadt und Land.
+-   **Multi-Website Support:** Natively scrapes listings from `inberlinwohnen.de`, `immowelt.de`, `kleinanzeigen.de`, `ohne-makler.net`, `deutsche-wohnen.com`, `vonovia.de`, `berlinovo.de`, and `immobilien.sparkasse.de`. Note that `inberlinwohnen.de` is a portal that aggregates listings from Berlin's state-owned housing companies: Gewobag, HOWOGE, WBM, Gesobau, and Stadt und Land.
 -   **Intelligent Scraping:** Instead of watching the whole page, the script parses individual apartment listings, tracking them by their unique URL.
 -   **Configurable Filters:** Only get notified about apartments that fit your needs. Filter by price, size (SQM), number of rooms, WBS requirement, and Berlin boroughs.
 -   **Telegram Notifications:** Get instant alerts delivered to your phone, giving you a head-start on your application.
