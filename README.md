@@ -80,6 +80,7 @@ You must create a `settings.json` file from the `settings.json.example`. This is
     -   After creating your bot, find it in your Telegram search and send it a `/start` message.
     -   Next, start a chat with a bot like **`@RawDataBot`**.
     -   It will reply with JSON. Find the `chat` object and copy the `id` number. This is your `chat_id`.
+    -   **Using a group chat:** You can also send notifications to a Telegram group instead of a private chat. Add your bot to the group, then open [web.telegram.org](https://web.telegram.org), navigate to your group, and look at the URL — it will contain a number like `#-123456789`. That number (including the `-`) is your group chat ID.
 
 #### b) Configuring Filters & Scrapers
 
