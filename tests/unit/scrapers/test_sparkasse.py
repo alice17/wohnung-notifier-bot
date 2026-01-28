@@ -1,6 +1,9 @@
 """
 Unit tests for the SparkasseScraper class.
 """
+# pylint: disable=protected-access
+# Accessing protected methods is expected when unit testing internal logic.
+
 import json
 import tempfile
 import unittest

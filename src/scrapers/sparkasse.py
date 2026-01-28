@@ -241,9 +241,16 @@ class SparkasseScraper(BaseScraper):
         if label_elem:
             parent = label_elem.find_parent()
             if parent:
+                # Skip over <style> tags to find actual content sibling
                 sibling = parent.find_next_sibling()
+                while sibling and sibling.name == "style":
+                    sibling = sibling.find_next_sibling()
+
                 if sibling:
-                    return sibling.get_text(strip=True)
+                    text = sibling.get_text(strip=True)
+                    # Reject CSS content
+                    if not self._is_css_content(text):
+                        return text
 
         return ""
 
@@ -309,11 +316,57 @@ class SparkasseScraper(BaseScraper):
         if label_elem:
             parent = label_elem.find_parent()
             if parent:
+                # Skip over <style> tags to find actual content sibling
                 sibling = parent.find_next_sibling()
+                while sibling and sibling.name == "style":
+                    sibling = sibling.find_next_sibling()
+
                 if sibling:
-                    return sibling.get_text(strip=True)
+                    # Remove any nested style tags
+                    for style in sibling.find_all("style"):
+                        style.decompose()
+
+                    text = sibling.get_text(strip=True)
+
+                    # Reject if it looks like CSS content
+                    if self._is_css_content(text):
+                        # Try extracting just numeric content with € symbol
+                        price_match = re.search(
+                            r"[\d.,]+\s*€", sibling.get_text(" ", strip=True)
+                        )
+                        if price_match:
+                            return price_match.group(0)
+                        return ""
+
+                    return text
 
         return ""
+
+    @staticmethod
+    def _is_css_content(text: str) -> bool:
+        """
+        Checks if text appears to be CSS content rather than actual data.
+
+        Args:
+            text: Text to check.
+
+        Returns:
+            True if the text looks like CSS, False otherwise.
+        """
+        if not text:
+            return False
+
+        css_indicators = [
+            "css-",
+            "{margin:",
+            "{padding:",
+            "font-size:",
+            "font-family:",
+            "line-height:",
+            "@media",
+            "var(--",
+        ]
+        return any(indicator in text for indicator in css_indicators)
 
     def _extract_sqm(self, soup: BeautifulSoup) -> str:
         """
@@ -359,13 +412,25 @@ class SparkasseScraper(BaseScraper):
             price_text: Raw price text (e.g., '1.800 €').
 
         Returns:
-            Normalized price string or 'N/A' if empty.
+            Normalized price string or 'N/A' if empty or invalid.
         """
         if not price_text:
             return "N/A"
 
+        # Reject CSS content that slipped through
+        if self._is_css_content(price_text):
+            return "N/A"
+
         cleaned = self._clean_text(price_text)
-        return self._normalize_german_number(cleaned) if cleaned else "N/A"
+
+        # Ensure the result is actually a number
+        if cleaned and cleaned != "N/A":
+            normalized = self._normalize_german_number(cleaned)
+            # Validate that result looks like a price (numeric)
+            if normalized and re.match(r"^[\d.]+$", normalized):
+                return normalized
+
+        return "N/A"
 
     @staticmethod
     def _clean_text(text: Optional[str]) -> str:
