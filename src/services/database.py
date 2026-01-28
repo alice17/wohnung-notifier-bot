@@ -22,12 +22,12 @@ class DatabaseManager:
     apartment listings, with automatic schema creation and connection management.
     """
 
-    _SELECT_COLUMNS = """identifier, source, address, borough, sqm, 
+    _SELECT_COLUMNS = """identifier, source, address, borough, sqm,
                price_cold, price_total, rooms, wbs"""
 
     _UPSERT_QUERY = """
-    INSERT INTO listings 
-    (identifier, source, address, borough, sqm, price_cold, 
+    INSERT INTO listings
+    (identifier, source, address, borough, sqm, price_cold,
      price_total, rooms, wbs, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     ON CONFLICT(identifier) DO UPDATE SET
