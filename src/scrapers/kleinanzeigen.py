@@ -39,7 +39,7 @@ class KleinanzeigenScraper(BaseScraper):
             name: Display name for this scraper instance.
         """
         super().__init__(name)
-        self.url = "https://www.kleinanzeigen.de/s-haus-mieten/berlin/sortierung:neuste/c205l3331r10"
+        self.url = "https://www.kleinanzeigen.de/s-wohnung-mieten/berlin/sortierung:neuste/c203l3331r10"
         self.headers.update(
             {
                 "Accept": (
