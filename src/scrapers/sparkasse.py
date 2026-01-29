@@ -48,7 +48,7 @@ class SparkasseScraper(BaseScraper):
             "?marketingType=rent"
             "&objectType=flat"
             "&perimeter=10"
-            "&sortBy=institute_asc"
+            "&sortBy=date_desc"
             "&usageType=residential"
             "&zipCityEstateId=62422__Berlin"
         )

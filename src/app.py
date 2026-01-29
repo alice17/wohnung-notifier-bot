@@ -222,7 +222,6 @@ class App:
         if new_listings:
             self.known_listings.update(new_listings)
             self.store.save(new_listings)
-            logger.info(f"Saved {len(new_listings)} new listing(s).")
         else:
             logger.info("No new listings found.")
 
