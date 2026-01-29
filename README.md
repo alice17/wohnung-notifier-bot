@@ -92,7 +92,9 @@ You must create a `settings.json` file from the `settings.json.example`. This is
         -   `"has_wbs": true` — Show all listings (you have a WBS, so you can apply anywhere)
         -   `"has_wbs": false` — Only show non-WBS listings (filter out apartments that require WBS)
         -   Omit or leave empty `{}` — Show all listings (no WBS filtering)
-    -   `boroughs`: The `allowed_values` list specifies which Berlin boroughs are acceptable. The script will filter out any listing whose borough is not in this list.
+    -   `boroughs`: Filter listings based on Berlin borough/neighborhood:
+        -   `"allowed_values": ["Mitte", "Kreuzberg", ...]` — Only show listings in the specified boroughs
+        -   `"allowed_values": []` or omit section — Show all listings (no borough filtering)
 
 #### c) Configuring Auto-Apply (Optional)
 
