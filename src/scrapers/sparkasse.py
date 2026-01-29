@@ -106,8 +106,8 @@ class SparkasseScraper(BaseScraper):
 
                 if identifier in known_ids:
                     seen_known_ids.add(identifier)
-                    logger.debug(f"Hit known listing '{identifier}', continuing.")
-                    continue
+                    logger.debug(f"Hit known listing '{identifier}', stopping early.")
+                    break
 
                 listing = self._parse_listing_from_detail(identifier, session)
                 if listing and listing.identifier:
