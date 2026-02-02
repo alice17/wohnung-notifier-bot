@@ -160,10 +160,16 @@ class BerlinovoScraper(BaseScraper):
             logger.warning("Could not find listing cards on berlinovo.de")
             return {}
 
+        skipped_count = 0
         for card in listing_cards:
             listing = self._parse_listing_card(card)
             if listing and listing.identifier:
                 listings_data[listing.identifier] = listing
+            elif listing is None:
+                skipped_count += 1
+
+        if skipped_count > 0:
+            logger.debug(f"Skipped {skipped_count} elements without valid listing URLs")
 
         return listings_data
 
@@ -192,7 +198,6 @@ class BerlinovoScraper(BaseScraper):
                     identifier = href
 
             if not identifier:
-                logger.debug("Skipping listing without valid URL")
                 return None
 
             # Extract address
@@ -229,7 +234,7 @@ class BerlinovoScraper(BaseScraper):
             )
 
         except (AttributeError, KeyError, ValueError, TypeError) as exc:
-            logger.error(f"Error parsing listing card: {exc}")
+            logger.debug(f"Error parsing listing card: {exc}")
             return None
 
     def _extract_address(self, card: BeautifulSoup) -> str:
@@ -415,19 +420,3 @@ class BerlinovoScraper(BaseScraper):
             return self._normalize_german_number(number_str)
 
         return "N/A"
-
-    @staticmethod
-    def _clean_text(text: Optional[str]) -> str:
-        """
-        Cleans text by removing extra whitespace.
-
-        Args:
-            text: Raw text to clean.
-
-        Returns:
-            Cleaned text or 'N/A' if empty.
-        """
-        if not text:
-            return "N/A"
-        cleaned = re.sub(r"\s+", " ", text).strip()
-        return cleaned if cleaned else "N/A"

@@ -36,6 +36,12 @@ LISTING_MAX_AGE_DAYS = 30
 REQUEST_TIMEOUT_SECONDS = 10
 """Default timeout for HTTP requests."""
 
+APPLY_RETRY_DELAY_SECONDS = 300
+"""Delay between application retry attempts (5 minutes)."""
+
+APPLY_MAX_RETRIES = 6
+"""Maximum number of retry attempts for failed applications."""
+
 
 # =============================================================================
 # Console Colors (ANSI escape codes)

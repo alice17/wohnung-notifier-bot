@@ -269,7 +269,7 @@ class KleinanzeigenScraper(BaseScraper):
             listing_soup: BeautifulSoup object containing the listing HTML
             
         Returns:
-            Tuple of (size, rooms) where both are strings, defaulting to 'N/A' and '1'
+            Tuple of (size, rooms) where both are strings, defaulting to 'N/A'
         """
         size_element = listing_soup.select_one('.aditem-main--middle--tags')
         tags_text = size_element.text if size_element else ''
@@ -280,7 +280,7 @@ class KleinanzeigenScraper(BaseScraper):
         
         # Extract number of rooms (e.g., "3 Zi." -> "3")
         rooms_match = re.search(r'(\d+)\s*Zi\.', tags_text)
-        rooms = rooms_match.group(1) if rooms_match else '1'
+        rooms = rooms_match.group(1) if rooms_match else 'N/A'
         
         return size, rooms
 
@@ -321,12 +321,3 @@ class KleinanzeigenScraper(BaseScraper):
         
         zip_code = zip_code_match.group(1)
         return self._get_borough_from_zip(zip_code)
-
-    @staticmethod
-    def _clean_text(text: Optional[str]) -> str:
-        """Remove extra whitespace and common units."""
-        if not text:
-            return "N/A"
-        text = re.sub(r'\s+', ' ', text).strip()
-        text = text.replace('€', '').replace('m²', '').replace('VB', '').strip()
-        return text if text else "N/A"

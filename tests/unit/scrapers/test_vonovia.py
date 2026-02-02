@@ -149,7 +149,7 @@ class TestVonoviaScraper(unittest.TestCase):
         """Test room count extraction with default value."""
         listing_data = {}
         rooms = self.scraper._extract_rooms(listing_data)
-        self.assertEqual(rooms, '1')
+        self.assertEqual(rooms, 'N/A')
 
     def test_build_listing_url(self):
         """Test listing URL building.

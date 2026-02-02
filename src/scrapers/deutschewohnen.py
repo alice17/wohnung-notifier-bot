@@ -214,7 +214,7 @@ class DeutscheWohnenScraper(BaseScraper):
             )
 
         except Exception as exc:
-            logger.error(f"Error parsing listing: {exc}")
+            logger.debug(f"Error parsing listing: {exc}")
             return None
 
     def _build_address(self, listing_data: dict) -> str:
@@ -300,12 +300,12 @@ class DeutscheWohnenScraper(BaseScraper):
             listing_data: Dictionary containing listing data.
 
         Returns:
-            Formatted room count string with dot decimal separator or '1'.
+            Formatted room count string with dot decimal separator or 'N/A'.
         """
         rooms = listing_data.get("anzahl_zimmer")
         if rooms:
             return self._normalize_rooms_format(str(rooms).strip())
-        return "1"
+        return "N/A"
 
     def _build_listing_url(self, listing_data: dict) -> str:
         """

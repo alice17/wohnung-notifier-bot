@@ -287,7 +287,7 @@ class TestKleinanzeigenScraperSizeAndRoomsExtraction(unittest.TestCase):
         self.assertEqual(rooms, "4")
 
     def test_extract_size_only(self):
-        """Test extraction when only size is present, rooms defaults to 1."""
+        """Test extraction when only size is present, rooms defaults to N/A."""
         html = """
         <div class="ad-listitem">
             <div class="aditem-main--middle--tags">
@@ -301,7 +301,7 @@ class TestKleinanzeigenScraperSizeAndRoomsExtraction(unittest.TestCase):
         size, rooms = self.scraper._extract_size_and_rooms(listing_soup)
 
         self.assertEqual(size, "45")
-        self.assertEqual(rooms, "1")
+        self.assertEqual(rooms, "N/A")
 
     def test_extract_no_tags_element(self):
         """Test extraction when tags element is missing."""
@@ -312,7 +312,7 @@ class TestKleinanzeigenScraperSizeAndRoomsExtraction(unittest.TestCase):
         size, rooms = self.scraper._extract_size_and_rooms(listing_soup)
 
         self.assertEqual(size, "N/A")
-        self.assertEqual(rooms, "1")
+        self.assertEqual(rooms, "N/A")
 
 
 class TestKleinanzeigenScraperAddressExtraction(unittest.TestCase):
@@ -911,7 +911,7 @@ class TestKleinanzeigenScraperIntegration(unittest.TestCase):
 
         self.assertIsNotNone(listing)
         self.assertEqual(listing.sqm, "28")
-        self.assertEqual(listing.rooms, "1")  # Defaults to 1 when not specified
+        self.assertEqual(listing.rooms, "N/A")  # N/A when not specified
         self.assertEqual(listing.price_cold, "650")
 
     @patch("src.scrapers.kleinanzeigen.requests.Session")

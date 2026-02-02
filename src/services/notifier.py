@@ -2,6 +2,7 @@
 This module handles sending notifications via Telegram.
 """
 import logging
+import time
 import urllib.parse
 from typing import Dict, Any, Union
 
@@ -13,6 +14,7 @@ from src.core.listing import Listing
 logger = logging.getLogger(__name__)
 
 TELEGRAM_API_URL_TEMPLATE = "https://api.telegram.org/bot{token}/sendMessage"
+MAX_RETRIES = 3
 
 
 def escape_markdown_v2(text: Union[str, int, float]) -> str:
@@ -49,7 +51,7 @@ class TelegramNotifier:
 
     def send_message(self, message: str) -> None:
         """
-        Sends a message to the configured Telegram chat.
+        Sends a message to the configured Telegram chat with retry logic for rate limiting.
 
         Args:
             message: The message text to send.
@@ -60,14 +62,41 @@ class TelegramNotifier:
             "parse_mode": "MarkdownV2",
             "disable_web_page_preview": True
         }
-        try:
-            response = requests.post(self.url, data=payload, timeout=REQUEST_TIMEOUT_SECONDS)
-            response.raise_for_status()  # Raise an exception for bad status codes
-            logger.info(f"Telegram response: {response.json().get('ok', False)}")
-        except requests.exceptions.HTTPError as http_err:
-            logger.exception(f"{Colors.RED}Telegram API Error: {http_err} - {response.text}{Colors.RESET}")
-        except Exception:
-            logger.exception(f"{Colors.RED}Error sending Telegram message{Colors.RESET}")
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = requests.post(self.url, data=payload, timeout=REQUEST_TIMEOUT_SECONDS)
+                response.raise_for_status()
+                logger.info(f"Telegram response: {response.json().get('ok', False)}")
+                return  # Success, exit the retry loop
+            except requests.exceptions.HTTPError as http_err:
+                if response.status_code == 429:
+                    # Rate limited - extract retry_after and wait
+                    try:
+                        retry_after = response.json().get('parameters', {}).get('retry_after', 30)
+                    except (ValueError, KeyError):
+                        retry_after = 30  # Default wait time if parsing fails
+
+                    if attempt < MAX_RETRIES - 1:
+                        logger.warning(
+                            f"{Colors.YELLOW}Rate limited by Telegram. "
+                            f"Waiting {retry_after} seconds before retry {attempt + 2}/{MAX_RETRIES}...{Colors.RESET}"
+                        )
+                        time.sleep(retry_after)
+                        continue
+                    else:
+                        logger.error(
+                            f"{Colors.RED}Rate limited by Telegram. "
+                            f"Max retries ({MAX_RETRIES}) exceeded.{Colors.RESET}"
+                        )
+                else:
+                    logger.exception(
+                        f"{Colors.RED}Telegram API Error: {http_err} - {response.text}{Colors.RESET}"
+                    )
+                    return  # Non-retryable error, exit
+            except Exception:
+                logger.exception(f"{Colors.RED}Error sending Telegram message{Colors.RESET}")
+                return  # Non-retryable error, exit
 
     def format_listing_message(self, listing: Listing) -> str:
         """

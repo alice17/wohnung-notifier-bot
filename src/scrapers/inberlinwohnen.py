@@ -263,22 +263,3 @@ class InBerlinWohnenScraper(BaseScraper):
         if zip_code_match:
             zip_code = zip_code_match.group(1)
             details['borough'] = self._get_borough_from_zip(zip_code)
-
-    @staticmethod
-    def _clean_text(text: Optional[str]) -> str:
-        """
-        Cleans text by removing extra whitespace and common units.
-        
-        Args:
-            text: Raw text to clean.
-            
-        Returns:
-            Cleaned text or 'N/A' if empty.
-        """
-        if not text:
-            return "N/A"
-        text = re.sub(r'\s+', ' ', text).strip()
-        text = text.replace('€', '').replace('m²', '').strip()
-        if text.endswith('.') or text.endswith(','):
-            text = text[:-1].strip()
-        return text if text else "N/A"
