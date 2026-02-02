@@ -119,5 +119,25 @@ class BaseScraper(ABC):
         # Replace comma with dot for decimal separator (same as prices)
         return value_str.replace(',', '.')
 
+    @staticmethod
+    def _clean_text(text: str) -> str:
+        """
+        Cleans text by removing extra whitespace and common units.
+        
+        Args:
+            text: Raw text to clean.
+            
+        Returns:
+            Cleaned text or 'N/A' if empty.
+        """
+        import re
+        if not text:
+            return "N/A"
+        text = re.sub(r'\s+', ' ', text).strip()
+        text = text.replace('€', '').replace('m²', '').replace('VB', '').strip()
+        if text.endswith('.') or text.endswith(','):
+            text = text[:-1].strip()
+        return text if text else "N/A"
+
     def __str__(self):
         return f"Scraper({self.name})"
