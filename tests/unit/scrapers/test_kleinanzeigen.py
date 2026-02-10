@@ -455,7 +455,7 @@ class TestKleinanzeigenScraperListingParsing(unittest.TestCase):
         soup = BeautifulSoup(html, "lxml")
         listing_soup = soup.find("div", class_="ad-listitem")
 
-        listing = self.scraper._parse_listing(listing_soup)
+        listing = self.scraper._parse_item(listing_soup)
 
         self.assertIsNotNone(listing)
         self.assertEqual(
@@ -482,7 +482,7 @@ class TestKleinanzeigenScraperListingParsing(unittest.TestCase):
         soup = BeautifulSoup(html, "lxml")
         listing_soup = soup.find("div", class_="ad-listitem")
 
-        listing = self.scraper._parse_listing(listing_soup)
+        listing = self.scraper._parse_item(listing_soup)
 
         self.assertIsNone(listing)
 
@@ -498,7 +498,7 @@ class TestKleinanzeigenScraperListingParsing(unittest.TestCase):
         soup = BeautifulSoup(html, "lxml")
         listing_soup = soup.find("div", class_="ad-listitem")
 
-        listing = self.scraper._parse_listing(listing_soup)
+        listing = self.scraper._parse_item(listing_soup)
 
         self.assertIsNone(listing)
 
@@ -719,7 +719,7 @@ class TestKleinanzeigenScraperIntegration(unittest.TestCase):
         soup = BeautifulSoup(html, "lxml")
         listing_soup = soup.find("div", class_="ad-listitem")
 
-        listing = self.scraper._parse_listing(listing_soup)
+        listing = self.scraper._parse_item(listing_soup)
 
         self.assertIsNotNone(listing)
         self.assertEqual(
@@ -774,7 +774,7 @@ class TestKleinanzeigenScraperIntegration(unittest.TestCase):
         soup = BeautifulSoup(html, "lxml")
         listing_soup = soup.find("div", class_="ad-listitem")
 
-        listing = self.scraper._parse_listing(listing_soup)
+        listing = self.scraper._parse_item(listing_soup)
 
         self.assertIsNotNone(listing)
         self.assertEqual(listing.address, "10961 Berlin Kreuzberg")
@@ -823,7 +823,7 @@ class TestKleinanzeigenScraperIntegration(unittest.TestCase):
         soup = BeautifulSoup(html, "lxml")
         listing_soup = soup.find("div", class_="ad-listitem")
 
-        listing = self.scraper._parse_listing(listing_soup)
+        listing = self.scraper._parse_item(listing_soup)
 
         self.assertIsNotNone(listing)
         self.assertEqual(listing.address, "10405 Berlin Prenzlauer Berg")
@@ -866,7 +866,7 @@ class TestKleinanzeigenScraperIntegration(unittest.TestCase):
         soup = BeautifulSoup(html, "lxml")
         listing_soup = soup.find("div", class_="ad-listitem")
 
-        listing = self.scraper._parse_listing(listing_soup)
+        listing = self.scraper._parse_item(listing_soup)
 
         self.assertIsNotNone(listing)
         self.assertEqual(listing.address, "12043 Berlin Neukölln")
@@ -907,7 +907,7 @@ class TestKleinanzeigenScraperIntegration(unittest.TestCase):
         soup = BeautifulSoup(html, "lxml")
         listing_soup = soup.find("div", class_="ad-listitem")
 
-        listing = self.scraper._parse_listing(listing_soup)
+        listing = self.scraper._parse_item(listing_soup)
 
         self.assertIsNotNone(listing)
         self.assertEqual(listing.sqm, "28")

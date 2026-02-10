@@ -17,12 +17,12 @@ Limitations:
 - Therefore, price_total remains 'N/A' for all listings
 """
 import logging
-from typing import Dict, Optional, Set
+from typing import Optional
 
 import requests
 
 from src.core.listing import Listing
-from src.scrapers.base import BaseScraper, ScraperResult
+from src.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
@@ -55,67 +55,18 @@ class VonoviaScraper(BaseScraper):
             }
         )
 
-    def get_current_listings(
-        self, known_listings: Optional[Dict[str, Listing]] = None
-    ) -> ScraperResult:
+    def _fetch_raw_items(self) -> list:
         """
-        Fetches apartment listings from the API (optimized for live updates).
-
-        Only fetches the first batch of listings sorted by date descending.
-        Implements early termination when a known listing is encountered,
-        since all subsequent listings would also be known.
-
-        Args:
-            known_listings: Previously seen listings for early termination.
+        Fetches the first batch of listings from the Vonovia API.
 
         Returns:
-            Tuple containing:
-            - Dictionary mapping identifiers to new Listing objects
-            - Set of known listing identifiers that were seen (still active)
-
-        Raises:
-            requests.exceptions.RequestException: If the HTTP request fails.
+            List of listing dictionaries from the API.
         """
-        known_ids: Set[str] = set(known_listings.keys()) if known_listings else set()
-        listings_data: Dict[str, Listing] = {}
-        seen_known_ids: Set[str] = set()
         session = requests.Session()
         session.headers.update(self.headers)
-
-        try:
-            batch_listings = self._fetch_listings_batch(
-                session, limit=LIVE_UPDATE_BATCH_SIZE, offset=0
-            )
-            logger.debug(f"Fetched {len(batch_listings)} listings from Vonovia API.")
-
-            new_count = 0
-            for listing_data in batch_listings:
-                identifier = self._extract_identifier_fast(listing_data)
-
-                if identifier and identifier in known_ids:
-                    seen_known_ids.add(identifier)
-                    logger.debug(
-                        f"Hit known listing '{identifier}', stopping (newest-first order)"
-                    )
-                    break
-
-                listing = self._parse_listing(listing_data)
-                if listing and listing.identifier:
-                    listings_data[listing.identifier] = listing
-                    new_count += 1
-
-            if new_count > 0:
-                logger.info(f"Found {new_count} new listing(s) on Vonovia")
-            else:
-                logger.debug("No new listings found on Vonovia")
-
-        except requests.exceptions.RequestException as exc:
-            logger.error(
-                f"An error occurred during the request for {self.api_url}: {exc}"
-            )
-            raise
-
-        return listings_data, seen_known_ids
+        return self._fetch_listings_batch(
+            session, limit=LIVE_UPDATE_BATCH_SIZE, offset=0
+        )
 
     def _extract_identifier_fast(self, listing_data: dict) -> Optional[str]:
         """
@@ -176,7 +127,7 @@ class VonoviaScraper(BaseScraper):
             "orderBy": "date_desc",
         }
 
-    def _parse_listing(self, listing_data: dict) -> Optional[Listing]:
+    def _parse_item(self, listing_data: dict) -> Optional[Listing]:
         """
         Parses a single listing from the API response.
 

@@ -12,13 +12,13 @@ Optimization Strategy:
 """
 import logging
 import re
-from typing import Dict, Optional, Set
+from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup
 
 from src.core.listing import Listing
-from src.scrapers.base import BaseScraper, ScraperResult
+from src.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
@@ -53,73 +53,24 @@ class KleinanzeigenScraper(BaseScraper):
             }
         )
 
-    def get_current_listings(
-        self, known_listings: Optional[Dict[str, Listing]] = None
-    ) -> ScraperResult:
+    def _fetch_raw_items(self) -> list:
         """
-        Fetches the website and returns new listings and seen known IDs.
-        
-        Optimized for live updates: uses early termination when a known
-        listing is encountered. Since listings are sorted newest first
-        (sortierung:neuste), hitting a known listing means all remaining
-        listings are also known.
-        
-        Args:
-            known_listings: Previously seen listings for early termination.
-            
+        Fetches the first page of listings from kleinanzeigen.de.
+
         Returns:
-            Tuple containing:
-            - Dictionary mapping identifiers to new Listing objects
-            - Set of known listing identifiers that were seen (still active)
-            
-        Raises:
-            requests.exceptions.RequestException: If the HTTP request fails.
+            List of BeautifulSoup listing elements (filtered to valid items).
         """
-        known_ids: Set[str] = set(known_listings.keys()) if known_listings else set()
-        listings_data: Dict[str, Listing] = {}
-        seen_known_ids: Set[str] = set()
         session = requests.Session()
         session.headers.update(self.headers)
 
-        try:
-            response = session.get(self.url, timeout=10)
-            response.raise_for_status()
+        response = session.get(self.url, timeout=10)
+        response.raise_for_status()
 
-            soup = BeautifulSoup(response.text, 'html.parser')
-            all_listing_elements = soup.select('#srchrslt-adtable .ad-listitem')
-            
-            # Filter out empty listing elements (ad spacers, placeholders, etc.)
-            listings = [li for li in all_listing_elements if li.select_one('.aditem')]
-            logger.debug(f"Found {len(listings)} valid listings on page.")
+        soup = BeautifulSoup(response.text, 'html.parser')
+        all_listing_elements = soup.select('#srchrslt-adtable .ad-listitem')
 
-            new_count = 0
-            for listing_soup in listings:
-                # Quick ID extraction before full parsing
-                identifier = self._extract_identifier_fast(listing_soup)
-                
-                if identifier and identifier in known_ids:
-                    seen_known_ids.add(identifier)
-                    logger.debug(
-                        f"Hit known listing '{identifier}', stopping (newest-first order)"
-                    )
-                    break
-                
-                # Full parsing only for new listings
-                listing = self._parse_listing(listing_soup)
-                if listing and listing.identifier:
-                    listings_data[listing.identifier] = listing
-                    new_count += 1
-
-            if new_count > 0:
-                logger.info(f"Found {new_count} new listing(s) on kleinanzeigen.de")
-            else:
-                logger.debug("No new listings found on kleinanzeigen.de")
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"An error occurred during the request for {self.url}: {e}")
-            raise
-
-        return listings_data, seen_known_ids
+        # Filter out empty listing elements (ad spacers, placeholders, etc.)
+        return [li for li in all_listing_elements if li.select_one('.aditem')]
 
     def _extract_identifier_fast(self, listing_soup: BeautifulSoup) -> Optional[str]:
         """
@@ -141,7 +92,7 @@ class KleinanzeigenScraper(BaseScraper):
                 return f"https://www.kleinanzeigen.de{relative_url}"
         return None
 
-    def _parse_listing(self, listing_soup: BeautifulSoup) -> Optional[Listing]:
+    def _parse_item(self, listing_soup: BeautifulSoup) -> Optional[Listing]:
         """
         Parses a single listing from its BeautifulSoup object.
         

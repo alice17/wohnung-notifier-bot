@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 from bs4 import BeautifulSoup
 
+from src.core.listing import Listing
 from src.scrapers.inberlinwohnen import InBerlinWohnenScraper
 from src.services.borough_resolver import BoroughResolver
 
@@ -101,21 +102,6 @@ class TestInBerlinWohnenScraperIdentifierExtraction(unittest.TestCase):
 
         identifier = self.scraper._extract_identifier_fast(listing_soup)
         self.assertIsNone(identifier)
-
-    def test_extract_known_ids(self):
-        """Test extracting known IDs from known listings dict."""
-        known_listings = {
-            "https://example.com/apartment/1": Mock(),
-            "https://example.com/apartment/2": Mock(),
-            "https://example.com/apartment/3": Mock(),
-        }
-
-        known_ids = self.scraper._extract_known_ids(known_listings)
-
-        self.assertEqual(len(known_ids), 3)
-        self.assertIn("https://example.com/apartment/1", known_ids)
-        self.assertIn("https://example.com/apartment/2", known_ids)
-        self.assertIn("https://example.com/apartment/3", known_ids)
 
 
 class TestInBerlinWohnenScraperFieldExtraction(unittest.TestCase):
@@ -280,9 +266,14 @@ class TestInBerlinWohnenScraperHTMLParsing(unittest.TestCase):
         """Test parsing HTML when container is not found."""
         html_content = "<html><body><div>No listings here</div></body></html>"
 
-        listings, seen_known_ids = self.scraper._parse_html_optimized(
-            html_content, set()
-        )
+        items = self.scraper._extract_items_from_html(html_content)
+        # items should be empty, so create empty listings
+        listings = {}
+        for item in items:
+            listing = self.scraper._parse_item(item)
+            if listing and listing.identifier:
+                listings[listing.identifier] = listing
+        seen_known_ids = set()
 
         self.assertEqual(len(listings), 0)
         self.assertEqual(len(seen_known_ids), 0)
@@ -297,9 +288,14 @@ class TestInBerlinWohnenScraperHTMLParsing(unittest.TestCase):
         </body></html>
         """
 
-        listings, seen_known_ids = self.scraper._parse_html_optimized(
-            html_content, set()
-        )
+        items = self.scraper._extract_items_from_html(html_content)
+        # items should be empty, so create empty listings
+        listings = {}
+        for item in items:
+            listing = self.scraper._parse_item(item)
+            if listing and listing.identifier:
+                listings[listing.identifier] = listing
+        seen_known_ids = set()
 
         self.assertEqual(len(listings), 0)
         self.assertEqual(len(seen_known_ids), 0)
@@ -320,11 +316,10 @@ class TestInBerlinWohnenScraperHTMLParsing(unittest.TestCase):
         </div>
         </body></html>
         """
-        known_ids = {"https://example.com/apartment/1"}
-
-        listings, seen_known_ids = self.scraper._parse_html_optimized(
-            html_content, known_ids
-        )
+        items = self.scraper._extract_items_from_html(html_content)
+        known_listings = {kid: Listing(source="test", identifier=kid) for kid in {"https://example.com/apartment/1"}}
+        with patch.object(self.scraper, '_fetch_raw_items', return_value=items):
+            listings, seen_known_ids = self.scraper.get_current_listings(known_listings)
 
         # First listing is known, should terminate early
         # seen_known_ids should contain the known listing
@@ -348,11 +343,10 @@ class TestInBerlinWohnenScraperHTMLParsing(unittest.TestCase):
         </div>
         </body></html>
         """
-        known_ids = {"https://example.com/apartment/known"}
-
-        listings, seen_known_ids = self.scraper._parse_html_optimized(
-            html_content, known_ids
-        )
+        items = self.scraper._extract_items_from_html(html_content)
+        known_listings = {kid: Listing(source="test", identifier=kid) for kid in {"https://example.com/apartment/known"}}
+        with patch.object(self.scraper, '_fetch_raw_items', return_value=items):
+            listings, seen_known_ids = self.scraper.get_current_listings(known_listings)
 
         # Should find one new listing before hitting known listing
         self.assertEqual(len(listings), 1)
@@ -587,7 +581,12 @@ class TestInBerlinWohnenScraperIntegration(unittest.TestCase):
         </body></html>
         """
 
-        listings, _ = self.scraper._parse_html_optimized(html, set())
+        items = self.scraper._extract_items_from_html(html)
+        listings = {}
+        for item in items:
+            listing = self.scraper._parse_item(item)
+            if listing and listing.identifier:
+                listings[listing.identifier] = listing
 
         self.assertEqual(len(listings), 1)
         listing = list(listings.values())[0]
@@ -645,7 +644,12 @@ class TestInBerlinWohnenScraperIntegration(unittest.TestCase):
         </body></html>
         """
 
-        listings, _ = self.scraper._parse_html_optimized(html, set())
+        items = self.scraper._extract_items_from_html(html)
+        listings = {}
+        for item in items:
+            listing = self.scraper._parse_item(item)
+            if listing and listing.identifier:
+                listings[listing.identifier] = listing
 
         self.assertEqual(len(listings), 1)
         listing = list(listings.values())[0]
@@ -697,7 +701,12 @@ class TestInBerlinWohnenScraperIntegration(unittest.TestCase):
         </body></html>
         """
 
-        listings, _ = self.scraper._parse_html_optimized(html, set())
+        items = self.scraper._extract_items_from_html(html)
+        listings = {}
+        for item in items:
+            listing = self.scraper._parse_item(item)
+            if listing and listing.identifier:
+                listings[listing.identifier] = listing
 
         self.assertEqual(len(listings), 1)
         listing = list(listings.values())[0]
@@ -746,7 +755,12 @@ class TestInBerlinWohnenScraperIntegration(unittest.TestCase):
         </body></html>
         """
 
-        listings, _ = self.scraper._parse_html_optimized(html, set())
+        items = self.scraper._extract_items_from_html(html)
+        listings = {}
+        for item in items:
+            listing = self.scraper._parse_item(item)
+            if listing and listing.identifier:
+                listings[listing.identifier] = listing
 
         self.assertEqual(len(listings), 1)
         listing = list(listings.values())[0]
@@ -810,7 +824,12 @@ class TestInBerlinWohnenScraperIntegration(unittest.TestCase):
         </body></html>
         """
 
-        listings, _ = self.scraper._parse_html_optimized(html, set())
+        items = self.scraper._extract_items_from_html(html)
+        listings = {}
+        for item in items:
+            listing = self.scraper._parse_item(item)
+            if listing and listing.identifier:
+                listings[listing.identifier] = listing
 
         self.assertEqual(len(listings), 3)
 
@@ -871,7 +890,12 @@ class TestInBerlinWohnenScraperIntegration(unittest.TestCase):
         </body></html>
         """
 
-        listings, _ = self.scraper._parse_html_optimized(html, set())
+        items = self.scraper._extract_items_from_html(html)
+        listings = {}
+        for item in items:
+            listing = self.scraper._parse_item(item)
+            if listing and listing.identifier:
+                listings[listing.identifier] = listing
 
         self.assertEqual(len(listings), 1)
         listing = list(listings.values())[0]

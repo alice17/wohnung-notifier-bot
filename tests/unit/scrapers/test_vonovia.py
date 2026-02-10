@@ -203,7 +203,7 @@ class TestVonoviaScraper(unittest.TestCase):
             'slug': '3-zimmer-erdgeschosswohnung-zur-miete-in-berlin-wedding-82-505949'
         }
 
-        listing = self.scraper._parse_listing(listing_data)
+        listing = self.scraper._parse_item(listing_data)
 
         self.assertIsNotNone(listing)
         self.assertEqual(listing.source, 'vonovia')
@@ -231,7 +231,7 @@ class TestVonoviaScraper(unittest.TestCase):
             'ort': 'Berlin OT Wedding'
         }
 
-        listing = self.scraper._parse_listing(listing_data)
+        listing = self.scraper._parse_item(listing_data)
         self.assertIsNone(listing)
 
     @patch('requests.Session.get')

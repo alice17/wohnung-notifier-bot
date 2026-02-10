@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 from bs4 import BeautifulSoup
 
+from src.core.listing import Listing
 from src.scrapers.ohnemakler import OhneMaklerScraper
 from src.services.borough_resolver import BoroughResolver
 
@@ -403,13 +404,14 @@ class TestOhneMaklerScraperEarlyTermination(unittest.TestCase):
         </body></html>
         """
         known_ids = {"https://www.ohne-makler.net/immobilie/22222/"}
+        known_listings = {kid: Listing(source="test", identifier=kid) for kid in known_ids}
+        items = self.scraper._extract_items_from_html(html_content)
 
         with patch.object(
             self.scraper, "_fetch_detail_page_pricing", return_value=(None, None)
         ):
-            listings, seen_known_ids = self.scraper._parse_html_optimized(
-                html_content, known_ids
-            )
+            with patch.object(self.scraper, '_fetch_raw_items', return_value=items):
+                listings, seen_known_ids = self.scraper.get_current_listings(known_listings)
 
         # Should only have the first listing (before known one)
         self.assertEqual(len(listings), 1)
@@ -458,12 +460,13 @@ class TestOhneMaklerScraperEarlyTermination(unittest.TestCase):
         </a>
         </body></html>
         """
+        items = self.scraper._extract_items_from_html(html_content)
+
         with patch.object(
             self.scraper, "_fetch_detail_page_pricing", return_value=(None, None)
         ):
-            listings, seen_known_ids = self.scraper._parse_html_optimized(
-                html_content, set()
-            )
+            with patch.object(self.scraper, '_fetch_raw_items', return_value=items):
+                listings, seen_known_ids = self.scraper.get_current_listings()
 
         self.assertEqual(len(listings), 2)
         self.assertEqual(len(seen_known_ids), 0)
@@ -497,7 +500,7 @@ class TestOhneMaklerScraperListingParsing(unittest.TestCase):
         with patch.object(
             self.scraper, "_fetch_detail_page_pricing", return_value=("1000", "1200")
         ):
-            listing = self.scraper._parse_listing_details(soup)
+            listing = self.scraper._parse_item(soup)
 
         self.assertIsNotNone(listing)
         self.assertEqual(
@@ -516,7 +519,7 @@ class TestOhneMaklerScraperListingParsing(unittest.TestCase):
         html = '<a href="/immobilie/12345/">Listing</a>'
         soup = BeautifulSoup(html, "lxml").find("a")
 
-        listing = self.scraper._parse_listing_details(soup)
+        listing = self.scraper._parse_item(soup)
         self.assertIsNone(listing)
 
     def test_parse_listing_details_no_href(self):
@@ -524,7 +527,7 @@ class TestOhneMaklerScraperListingParsing(unittest.TestCase):
         html = '<a data-om-id="12345">Listing</a>'
         soup = BeautifulSoup(html, "lxml").find("a")
 
-        listing = self.scraper._parse_listing_details(soup)
+        listing = self.scraper._parse_item(soup)
         self.assertIsNone(listing)
 
     def test_parse_listing_details_address_formatting(self):
@@ -541,7 +544,7 @@ class TestOhneMaklerScraperListingParsing(unittest.TestCase):
         with patch.object(
             self.scraper, "_fetch_detail_page_pricing", return_value=(None, None)
         ):
-            listing = self.scraper._parse_listing_details(soup)
+            listing = self.scraper._parse_item(soup)
 
         self.assertIsNotNone(listing)
         self.assertEqual(listing.address, "10245 Berlin")

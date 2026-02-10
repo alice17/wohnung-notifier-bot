@@ -14,13 +14,13 @@ Features:
 import logging
 import re
 import time
-from typing import Dict, Optional, Set
+from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup
 
 from src.core.listing import Listing
-from src.scrapers.base import BaseScraper, ScraperResult
+from src.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
@@ -65,70 +65,47 @@ class SparkasseScraper(BaseScraper):
             }
         )
 
-    def get_current_listings(
-        self, known_listings: Optional[Dict[str, Listing]] = None
-    ) -> ScraperResult:
+    def _fetch_raw_items(self) -> list:
         """
-        Fetches apartment listings from the Sparkasse portal.
+        Fetches the search results page and returns listing URLs.
 
-        Scrapes the main listing page and visits each detail page to
-        extract exact addresses. Uses early termination when a known
-        listing is encountered.
-
-        Args:
-            known_listings: Previously seen listings for early termination.
+        Creates a session for reuse across detail page fetches.
 
         Returns:
-            Tuple containing:
-            - Dictionary mapping identifiers to new Listing objects
-            - Set of known listing identifiers that were seen (still active)
-
-        Raises:
-            requests.exceptions.RequestException: If the HTTP request fails.
+            List of full listing URLs (strings).
         """
-        known_ids: Set[str] = set(known_listings.keys()) if known_listings else set()
-        listings_data: Dict[str, Listing] = {}
-        seen_known_ids: Set[str] = set()
-        session = requests.Session()
-        session.headers.update(self.headers)
+        self._active_session = requests.Session()
+        self._active_session.headers.update(self.headers)
 
-        try:
-            response = session.get(self.url, timeout=15)
-            response.raise_for_status()
+        response = self._active_session.get(self.url, timeout=15)
+        response.raise_for_status()
 
-            soup = BeautifulSoup(response.text, "html.parser")
-            listing_links = self._extract_listing_links(soup)
-            logger.debug(f"Found {len(listing_links)} listings on page.")
+        soup = BeautifulSoup(response.text, "html.parser")
+        links = self._extract_listing_links(soup)
 
-            new_count = 0
-            for link in listing_links:
-                identifier = self.base_url + link if link.startswith("/") else link
+        return [
+            self.base_url + link if link.startswith("/") else link
+            for link in links
+        ]
 
-                if identifier in known_ids:
-                    seen_known_ids.add(identifier)
-                    logger.debug(f"Hit known listing '{identifier}', stopping early.")
-                    break
+    def _extract_identifier_fast(self, url: str) -> Optional[str]:
+        """The raw item is already the URL/identifier."""
+        return url
 
-                listing = self._parse_listing_from_detail(identifier, session)
-                if listing and listing.identifier:
-                    listings_data[listing.identifier] = listing
-                    new_count += 1
-                    time.sleep(DETAIL_PAGE_DELAY)
+    def _parse_item(self, url: str) -> Optional[Listing]:
+        """
+        Fetches and parses a listing from its detail page.
 
-            if new_count > 0:
-                logger.info(
-                    f"Found {new_count} new listing(s) on Sparkasse Immobilien"
-                )
-            else:
-                logger.debug("No new listings found on Sparkasse Immobilien")
+        Args:
+            url: Full URL to the listing detail page.
 
-        except requests.exceptions.RequestException as exc:
-            logger.error(
-                f"An error occurred during the request for {self.url}: {exc}"
-            )
-            raise
-
-        return listings_data, seen_known_ids
+        Returns:
+            Listing object or None if parsing fails.
+        """
+        listing = self._parse_listing_from_detail(url, self._active_session)
+        if listing:
+            time.sleep(DETAIL_PAGE_DELAY)
+        return listing
 
     def _extract_listing_links(self, soup: BeautifulSoup) -> list[str]:
         """

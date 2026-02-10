@@ -20,13 +20,13 @@ public JSON API. HTML parsing is required but optimized.
 """
 import logging
 import re
-from typing import Dict, Optional, Set
+from typing import Dict, Optional
 
 import requests
 from bs4 import BeautifulSoup
 
 from src.core.listing import Listing
-from src.scrapers.base import BaseScraper, ScraperResult
+from src.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
@@ -52,83 +52,38 @@ class InBerlinWohnenScraper(BaseScraper):
         super().__init__(name)
         self.url = "https://www.inberlinwohnen.de/wohnungsfinder"
 
-    def get_current_listings(
-        self, known_listings: Optional[Dict[str, Listing]] = None
-    ) -> ScraperResult:
+    def _fetch_raw_items(self) -> list:
         """
-        Fetches the website and returns new listings and seen known IDs.
-        
-        Optimized for live updates: uses early termination when a known
-        listing is encountered. Since listings are sorted newest first,
-        hitting a known listing means all remaining listings are also known.
-        
-        Args:
-            known_listings: Previously seen listings for early termination.
-            
-        Returns:
-            Tuple containing:
-            - Dictionary mapping identifiers to new Listing objects
-            - Set of known listing identifiers that were seen (still active)
-            
-        Raises:
-            requests.exceptions.RequestException: If the HTTP request fails.
-        """
-        known_ids = self._extract_known_ids(known_listings) if known_listings else set()
-        
-        try:
-            with requests.get(self.url, headers=self.headers, timeout=(10, 40)) as response:
-                response.raise_for_status()
-                return self._parse_html_optimized(response.text, known_ids)
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error fetching website {self.url}: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"An unexpected error occurred during parsing: {e}")
-            raise
+        Fetches the listing page and returns listing card elements.
 
-    def _extract_known_ids(self, known_listings: Dict[str, Listing]) -> Set[str]:
-        """
-        Extracts apartment IDs from known listings for fast lookup.
-        
-        The identifier is typically the detail page URL. We extract the
-        apartment ID pattern for quick comparison.
-        
-        Args:
-            known_listings: Dictionary of known listings.
-            
         Returns:
-            Set of known listing identifiers for O(1) lookup.
+            List of BeautifulSoup listing item elements.
         """
-        return set(known_listings.keys())
+        with requests.get(self.url, headers=self.headers, timeout=(10, 40)) as response:
+            response.raise_for_status()
+            return self._extract_items_from_html(response.text)
 
-    def _parse_html_optimized(
-        self, html_content: str, known_ids: Set[str]
-    ) -> ScraperResult:
+    def _extract_items_from_html(self, html_content: str) -> list:
         """
-        Parses HTML with early termination optimization.
-        
-        Stops processing when encountering a known listing since results
-        are sorted newest first - all subsequent listings would be known.
-        
+        Extracts listing items from HTML content.
+
+        Handles container and item detection with appropriate logging
+        when elements are not found.
+
         Args:
             html_content: Raw HTML content from the page.
-            known_ids: Set of known listing identifiers.
-            
+
         Returns:
-            Tuple containing:
-            - Dictionary of new listings only
-            - Set of known listing identifiers that were seen (still active)
+            List of BeautifulSoup listing item elements.
         """
         soup = BeautifulSoup(html_content, 'lxml')
-        listings_data: Dict[str, Listing] = {}
-        seen_known_ids: Set[str] = set()
 
         listings_container = soup.select_one(self.LISTINGS_CONTAINER_SELECTOR)
         if not listings_container:
             logger.error(
                 f"Could not find listing container '{self.LISTINGS_CONTAINER_SELECTOR}'"
             )
-            return {}, set()
+            return []
 
         listing_items = listings_container.select(self.LISTING_ITEM_SELECTOR)
         if not listing_items:
@@ -139,38 +94,27 @@ class InBerlinWohnenScraper(BaseScraper):
                     f"Container found, but no items matching "
                     f"'{self.LISTING_ITEM_SELECTOR}'."
                 )
-            return {}, set()
+            return []
 
-        new_count = 0
-        for item_soup in listing_items:
-            # Quick ID extraction before full parsing
-            identifier = self._extract_identifier_fast(item_soup)
-            
-            if identifier and identifier in known_ids:
-                # Track this known listing as still active
-                seen_known_ids.add(identifier)
-                # Early termination: listings are newest first
-                logger.debug(
-                    f"Hit known listing '{identifier}', stopping (newest-first order)"
-                )
-                break
-            
-            # Full parsing only for new listings
-            listing = self._parse_listing_details(item_soup)
-            if listing.identifier:
-                listings_data[listing.identifier] = listing
-                new_count += 1
-            else:
-                logger.warning(
-                    "Skipping a listing because no identifier could be determined."
-                )
+        return listing_items
 
-        if new_count > 0:
-            logger.info(f"Found {new_count} new listing(s) on inberlinwohnen.de")
-        else:
-            logger.debug("No new listings found on inberlinwohnen.de")
+    def _parse_item(self, item_soup) -> Optional[Listing]:
+        """
+        Parses a single listing item into a Listing.
 
-        return listings_data, seen_known_ids
+        Args:
+            item_soup: BeautifulSoup element for a single listing.
+
+        Returns:
+            Listing object or None if no identifier could be determined.
+        """
+        listing = self._parse_listing_details(item_soup)
+        if not listing.identifier:
+            logger.warning(
+                "Skipping a listing because no identifier could be determined."
+            )
+            return None
+        return listing
 
     def _extract_identifier_fast(self, listing_soup: BeautifulSoup) -> Optional[str]:
         """

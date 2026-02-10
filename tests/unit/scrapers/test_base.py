@@ -15,11 +15,13 @@ from src.services.borough_resolver import BoroughResolver
 class ConcreteScraper(BaseScraper):
     """Concrete implementation of BaseScraper for testing."""
 
-    def get_current_listings(
-        self, known_listings: Optional[Dict[str, Listing]] = None
-    ) -> Dict[str, Listing]:
+    def _fetch_raw_items(self) -> list:
         """Dummy implementation for testing."""
-        return {}
+        return []
+
+    def _parse_item(self, raw_item) -> Optional[Listing]:
+        """Dummy implementation for testing."""
+        return None
 
 
 class TestBaseScraper(unittest.TestCase):

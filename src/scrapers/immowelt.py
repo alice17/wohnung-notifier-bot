@@ -14,13 +14,13 @@ Optimization Strategy:
 import logging
 import re
 import time
-from typing import Dict, Optional, Set
+from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup
 
 from src.core.listing import Listing
-from src.scrapers.base import BaseScraper, ScraperResult
+from src.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
@@ -62,79 +62,44 @@ class ImmoweltScraper(BaseScraper):
             }
         )
 
-    def get_current_listings(
-        self, known_listings: Optional[Dict[str, Listing]] = None
-    ) -> ScraperResult:
+    def _fetch_raw_items(self) -> list:
         """
-        Fetches the website and returns new listings and seen known IDs.
-        
-        Optimized for live updates: uses early termination when a known
-        listing is encountered. Since listings are sorted newest first,
-        hitting a known listing means all remaining listings are also known.
-        
-        Args:
-            known_listings: Previously seen listings for early termination.
-            
+        Fetches the first page of listings from immowelt.de.
+
+        Creates a session with cookie warmup (visits homepage first),
+        then fetches and parses the search results page.
+
         Returns:
-            Tuple containing:
-            - Dictionary mapping identifiers to new Listing objects
-            - Set of known listing identifiers that were seen (still active)
-            
-        Raises:
-            requests.exceptions.RequestException: If the HTTP request fails.
+            List of BeautifulSoup listing card elements.
         """
-        if not known_listings:
-            known_listings = {}
-        
-        known_ids: Set[str] = set(known_listings.keys())
-        listings_data: Dict[str, Listing] = {}
-        seen_known_ids: Set[str] = set()
-        session = requests.Session()
-        session.headers.update(self.headers)
+        self._active_session = requests.Session()
+        self._active_session.headers.update(self.headers)
+        self._active_session.get("https://www.immowelt.de/", timeout=10)
 
-        try:
-            session.get("https://www.immowelt.de/", timeout=10)
-            response = session.get(self.url, timeout=10)
-            response.raise_for_status()
+        response = self._active_session.get(self.url, timeout=10)
+        response.raise_for_status()
 
-            soup = BeautifulSoup(response.text, 'html.parser')
-            listing_elements = soup.find_all(
-                'div', 
-                attrs={'data-testid': lambda v: v and v.startswith('classified-card-mfe-')}
-            )
-            logger.debug(f"Found {len(listing_elements)} listings on page.")
+        soup = BeautifulSoup(response.text, 'html.parser')
+        return soup.find_all(
+            'div',
+            attrs={'data-testid': lambda v: v and v.startswith('classified-card-mfe-')}
+        )
 
-            new_count = 0
-            for listing_soup in listing_elements:
-                # Quick ID extraction before full parsing
-                identifier = self._extract_identifier_fast(listing_soup)
-                
-                if identifier and identifier in known_ids:
-                    # Track this known listing as still active
-                    seen_known_ids.add(identifier)
-                    logger.debug(
-                        f"Hit known listing '{identifier}', stopping (newest-first order)"
-                    )
-                    break
-                
-                # Full parsing only for new listings
-                listing = self._parse_listing(listing_soup)
-                if listing and listing.identifier:
-                    self._scrape_listing_details(listing, session)
-                    time.sleep(0.5)  # Brief delay between detail fetches
-                    listings_data[listing.identifier] = listing
-                    new_count += 1
+    def _parse_item(self, listing_soup) -> Optional[Listing]:
+        """
+        Parses a listing card and fetches detail page for warm rent.
 
-            if new_count > 0:
-                logger.info(f"Found {new_count} new listing(s) on immowelt.de")
-            else:
-                logger.debug("No new listings found on immowelt.de")
+        Args:
+            listing_soup: BeautifulSoup element for a single listing card.
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"An error occurred during the request for {self.url}: {e}")
-            raise
-
-        return listings_data, seen_known_ids
+        Returns:
+            Listing object or None if parsing fails.
+        """
+        listing = self._parse_listing(listing_soup)
+        if listing and listing.identifier:
+            self._scrape_listing_details(listing, self._active_session)
+            time.sleep(0.5)  # Brief delay between detail fetches
+        return listing
 
     def _extract_identifier_fast(self, listing_soup: BeautifulSoup) -> Optional[str]:
         """

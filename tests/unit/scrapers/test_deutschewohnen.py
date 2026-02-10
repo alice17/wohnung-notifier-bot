@@ -157,7 +157,7 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
             'slug': 'test-listing-89-12345'
         }
 
-        listing = self.scraper._parse_listing(listing_data)
+        listing = self.scraper._parse_item(listing_data)
 
         self.assertIsNotNone(listing)
         self.assertEqual(listing.source, 'deutschewohnen')
@@ -182,7 +182,7 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
             'ort': 'Berlin OT Mitte'
         }
 
-        listing = self.scraper._parse_listing(listing_data)
+        listing = self.scraper._parse_item(listing_data)
         self.assertIsNone(listing)
 
     @patch('requests.Session.get')

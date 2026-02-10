@@ -18,13 +18,13 @@ Limitations:
 """
 import logging
 import re
-from typing import Dict, Optional, Set
+from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup
 
 from src.core.listing import Listing
-from src.scrapers.base import BaseScraper, ScraperResult
+from src.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,8 @@ class BerlinovoScraper(BaseScraper):
     does not support sorting by listing creation date. All listings are
     parsed on each run.
     """
+
+    supports_early_termination = False
 
     BASE_URL = "https://www.berlinovo.de"
     SEARCH_URL = f"{BASE_URL}/de/wohnungen/suche"
@@ -51,71 +53,38 @@ class BerlinovoScraper(BaseScraper):
         super().__init__(name)
         self.url = self.SEARCH_URL
 
-    def get_current_listings(
-        self, known_listings: Optional[Dict[str, Listing]] = None
-    ) -> ScraperResult:
+    def _fetch_raw_items(self) -> list:
         """
-        Fetches all apartment listings from berlinovo.de.
+        Fetches all listing cards from berlinovo.de across all pages.
 
-        Note: Early termination is NOT used because the website does not
-        support sorting by insertion date. All listings are parsed each run.
-
-        Args:
-            known_listings: Previously seen listings (used for filtering only).
+        Paginates until a page returns fewer than 10 results.
 
         Returns:
-            Tuple containing:
-            - Dictionary mapping identifiers to new Listing objects
-            - Set of known listing identifiers that were seen (still active)
-
-        Raises:
-            requests.exceptions.RequestException: If the HTTP request fails.
+            List of BeautifulSoup card elements from all pages.
         """
-        known_ids: Set[str] = set(known_listings.keys()) if known_listings else set()
-        all_listings: Dict[str, Listing] = {}
-        seen_known_ids: Set[str] = set()
+        all_cards = []
+        page = 0
 
-        try:
-            page = 0
-            while True:
-                page_listings = self._fetch_page(page)
+        while True:
+            cards = self._fetch_page_cards(page)
+            if not cards:
+                break
+            all_cards.extend(cards)
+            if len(cards) < 10:
+                break
+            page += 1
 
-                if not page_listings:
-                    break
+        return all_cards
 
-                # Track seen known listings and filter to only new listings
-                for lid, listing in page_listings.items():
-                    if lid in known_ids:
-                        seen_known_ids.add(lid)
-                    else:
-                        all_listings[lid] = listing
-
-                # Check if there might be more pages
-                if len(page_listings) < 10:
-                    break
-
-                page += 1
-
-            if all_listings:
-                logger.info(f"Found {len(all_listings)} new listing(s) on berlinovo.de")
-            else:
-                logger.debug("No new listings found on berlinovo.de")
-
-            return all_listings, seen_known_ids
-
-        except requests.exceptions.RequestException as exc:
-            logger.error(f"Error fetching berlinovo.de: {exc}")
-            raise
-
-    def _fetch_page(self, page: int = 0) -> Dict[str, Listing]:
+    def _fetch_page_cards(self, page: int = 0) -> list:
         """
-        Fetches a single page of listings.
+        Fetches a single page and returns listing card elements.
 
         Args:
             page: Page number (0-indexed).
 
         Returns:
-            Dictionary of listings found on the page.
+            List of BeautifulSoup card elements.
         """
         params = {
             "sort": "field_available_date",
@@ -130,50 +99,52 @@ class BerlinovoScraper(BaseScraper):
         )
         response.raise_for_status()
 
-        return self._parse_html(response.text)
+        return self._find_listing_cards(response.text)
 
-    def _parse_html(self, html_content: str) -> Dict[str, Listing]:
+    def _find_listing_cards(self, html_content: str) -> list:
         """
-        Parses HTML content and extracts listings.
+        Finds listing card elements in HTML content.
 
         Args:
-            html_content: Raw HTML content from the page.
+            html_content: Raw HTML from the page.
 
         Returns:
-            Dictionary mapping identifiers to Listing objects.
+            List of BeautifulSoup card elements.
         """
         soup = BeautifulSoup(html_content, "lxml")
-        listings_data: Dict[str, Listing] = {}
 
-        # Find all listing articles/cards on the page
         listing_cards = soup.select("article.node--type-wohnung")
-
         if not listing_cards:
-            # Try alternative selector for the listing container
             listing_cards = soup.select(".view-wohnungssuche .views-row")
-
         if not listing_cards:
-            # Fallback: look for any teaser-style containers
             listing_cards = soup.select("[class*='teaser'], [class*='listing']")
-
         if not listing_cards:
             logger.warning("Could not find listing cards on berlinovo.de")
-            return {}
 
-        skipped_count = 0
-        for card in listing_cards:
-            listing = self._parse_listing_card(card)
-            if listing and listing.identifier:
-                listings_data[listing.identifier] = listing
-            elif listing is None:
-                skipped_count += 1
+        return listing_cards
 
-        if skipped_count > 0:
-            logger.debug(f"Skipped {skipped_count} elements without valid listing URLs")
+    def _extract_identifier_fast(self, card) -> Optional[str]:
+        """
+        Quickly extracts the listing URL from a card element.
 
-        return listings_data
+        Args:
+            card: BeautifulSoup element representing a listing card.
 
-    def _parse_listing_card(self, card: BeautifulSoup) -> Optional[Listing]:
+        Returns:
+            The listing URL or None if not found.
+        """
+        link_elem = card.select_one("a[href*='/de/wohnung/']")
+        if not link_elem:
+            link_elem = card.select_one("a[href]")
+        if link_elem and link_elem.get("href"):
+            href = link_elem["href"]
+            if href.startswith("/"):
+                return f"{self.BASE_URL}{href}"
+            if href.startswith("http"):
+                return href
+        return None
+
+    def _parse_item(self, card: BeautifulSoup) -> Optional[Listing]:
         """
         Parses a single listing card and extracts details.
 

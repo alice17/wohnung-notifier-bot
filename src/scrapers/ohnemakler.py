@@ -13,13 +13,13 @@ Optimization Strategy:
 """
 import logging
 import re
-from typing import Dict, Optional, Set, Tuple
+from typing import Optional, Tuple
 
 import requests
 from bs4 import BeautifulSoup
 
 from src.core.listing import Listing
-from src.scrapers.base import BaseScraper, ScraperResult
+from src.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
@@ -44,93 +44,34 @@ class OhneMaklerScraper(BaseScraper):
         super().__init__(name)
         self.url = f"{self.BASE_URL}/immobilien/wohnung-mieten/berlin/berlin/"
 
-    def get_current_listings(
-        self, known_listings: Optional[Dict[str, Listing]] = None
-    ) -> ScraperResult:
+    def _fetch_raw_items(self) -> list:
         """
-        Fetches the website and returns new listings and seen known IDs.
-        
-        Optimized for live updates: uses early termination when a known
-        listing is encountered. Since listings typically appear newest first,
-        hitting a known listing suggests remaining listings are also known.
-        
-        Args:
-            known_listings: Previously seen listings for early termination.
-            
-        Returns:
-            Tuple containing:
-            - Dictionary mapping identifiers to new Listing objects
-            - Set of known listing identifiers that were seen (still active)
-            
-        Raises:
-            requests.exceptions.RequestException: If the HTTP request fails.
-        """
-        known_ids: Set[str] = set(known_listings.keys()) if known_listings else set()
-        
-        try:
-            with requests.get(self.url, headers=self.headers, timeout=20) as response:
-                response.raise_for_status()
-                return self._parse_html_optimized(response.text, known_ids)
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error fetching website {self.url}: {e}")
-            raise
+        Fetches the listing page and returns listing link elements.
 
-    def _parse_html_optimized(
-        self, html_content: str, known_ids: Set[str]
-    ) -> ScraperResult:
-        """
-        Parses HTML with early termination optimization.
-        
-        Stops processing when encountering a known listing since results
-        typically appear newest first - subsequent listings would be known.
-        
-        Args:
-            html_content: The raw HTML content from the website.
-            known_ids: Set of known listing identifiers.
-            
         Returns:
-            Tuple containing:
-            - Dictionary of new listings only
-            - Set of known listing identifiers that were seen (still active)
+            List of BeautifulSoup anchor elements for listings.
+        """
+        with requests.get(self.url, headers=self.headers, timeout=20) as response:
+            response.raise_for_status()
+            return self._extract_items_from_html(response.text)
+
+    def _extract_items_from_html(self, html_content: str) -> list:
+        """
+        Extracts listing items from HTML content.
+
+        Args:
+            html_content: Raw HTML content from the page.
+
+        Returns:
+            List of BeautifulSoup anchor elements for listings.
         """
         soup = BeautifulSoup(html_content, 'lxml')
-        listings_data: Dict[str, Listing] = {}
-        seen_known_ids: Set[str] = set()
-
         listing_items = soup.find_all('a', href=re.compile(r'^/immobilie/\d+/$'))
-        
+
         if not listing_items:
             logger.warning("No listing items found on the page.")
-            return {}, set()
 
-        logger.debug(f"Found {len(listing_items)} listings on page.")
-
-        new_count = 0
-        for item_soup in listing_items:
-            # Quick ID extraction before full parsing
-            identifier = self._extract_identifier_fast(item_soup)
-            
-            if identifier and identifier in known_ids:
-                seen_known_ids.add(identifier)
-                logger.debug(
-                    f"Hit known listing '{identifier}', stopping (newest-first order)"
-                )
-                break
-            
-            # Full parsing only for new listings
-            listing = self._parse_listing_details(item_soup)
-            if listing and listing.identifier:
-                listings_data[listing.identifier] = listing
-                new_count += 1
-            else:
-                logger.warning("Skipping a listing: no identifier found.")
-
-        if new_count > 0:
-            logger.info(f"Found {new_count} new listing(s) on ohne-makler.net")
-        else:
-            logger.debug("No new listings found on ohne-makler.net")
-
-        return listings_data, seen_known_ids
+        return listing_items
 
     def _extract_identifier_fast(self, listing_soup: BeautifulSoup) -> Optional[str]:
         """
@@ -150,7 +91,7 @@ class OhneMaklerScraper(BaseScraper):
             return f"{self.BASE_URL}{href}"
         return None
 
-    def _parse_listing_details(self, listing_soup: BeautifulSoup) -> Optional[Listing]:
+    def _parse_item(self, listing_soup: BeautifulSoup) -> Optional[Listing]:
         """
         Parses details from an individual listing's BeautifulSoup object.
         

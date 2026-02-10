@@ -160,7 +160,7 @@ class TestBerlinovoScraper(unittest.TestCase):
         mock_response.raise_for_status = Mock()
         mock_get.return_value = mock_response
 
-        self.scraper._fetch_page(page=2)
+        self.scraper._fetch_page_cards(page=2)
 
         # Check that page parameter was included
         call_args = mock_get.call_args
@@ -175,7 +175,7 @@ class TestBerlinovoScraper(unittest.TestCase):
         mock_response.raise_for_status = Mock()
         mock_get.return_value = mock_response
 
-        self.scraper._fetch_page(page=0)
+        self.scraper._fetch_page_cards(page=0)
 
         # Check that page parameter was not included
         call_args = mock_get.call_args
@@ -185,8 +185,8 @@ class TestBerlinovoScraper(unittest.TestCase):
     def test_parse_html_no_listings(self):
         """Test parsing HTML with no listings."""
         html_content = "<html><body><div>No apartments available</div></body></html>"
-        listings = self.scraper._parse_html(html_content)
-        self.assertEqual(len(listings), 0)
+        cards = self.scraper._find_listing_cards(html_content)
+        self.assertEqual(len(cards), 0)
 
     def test_normalize_rooms_format(self):
         """Test room format normalization inherited from base."""
@@ -286,7 +286,7 @@ class TestBerlinovoScraperIntegration(unittest.TestCase):
         soup = BeautifulSoup(html, "lxml")
         card = soup.select_one("article.node--type-wohnung")
 
-        listing = self.scraper._parse_listing_card(card)
+        listing = self.scraper._parse_item(card)
 
         self.assertIsNotNone(listing)
         self.assertEqual(listing.source, "berlinovo")
