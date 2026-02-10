@@ -46,6 +46,15 @@
       "email": "erika.mustermann@example.com",
       "telefon": "0123456789",
       "wbs": "nein"
+    },
+    "berlinovo": {
+      "enabled": true,
+      "anrede": "Frau",
+      "name": "Mustermann",
+      "vorname": "Erika",
+      "email": "erika.mustermann@example.com",
+      "telefon": "0123456789",
+      "anmerkungen": ""
     }
   },
   "filters": {
