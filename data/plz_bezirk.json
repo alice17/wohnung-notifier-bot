@@ -29,7 +29,8 @@
       "Prenzlauer Berg"
     ],
     "10315": [
-      "Friedrichsfelde"
+      "Friedrichsfelde",
+      "Lichtenberg"
     ],
     "10317": [
       "Friedrichsfelde",
@@ -47,6 +48,7 @@
       "Lichtenberg"
     ],
     "10367": [
+      "Fennpfuhl",
       "Lichtenberg"
     ],
     "10369": [
@@ -63,6 +65,7 @@
       "Prenzlauer Berg"
     ],
     "10435": [
+      "Mitte",
       "Prenzlauer Berg"
     ],
     "10437": [
@@ -95,8 +98,7 @@
       "Tiergarten"
     ],
     "10585": [
-      "Charlottenburg",
-      "Spandau"
+      "Charlottenburg"
     ],
     "10587": [
       "Charlottenburg"
@@ -143,12 +145,12 @@
       "Wilmersdorf"
     ],
     "10777": [
-      "Wilmersdorf",
-      "Schöneberg"
+      "Schöneberg",
+      "Wilmersdorf"
     ],
     "10779": [
-      "Wilmersdorf",
-      "Schöneberg"
+      "Schöneberg",
+      "Wilmersdorf"
     ],
     "10781": [
       "Schöneberg"
@@ -158,25 +160,25 @@
     ],
     "10785": [
       "Kreuzberg",
-      "Tiergarten",
-      "Schöneberg"
+      "Schöneberg",
+      "Tiergarten"
     ],
     "10787": [
       "Charlottenburg",
-      "Tiergarten",
-      "Schöneberg"
+      "Schöneberg",
+      "Tiergarten"
     ],
     "10789": [
       "Charlottenburg",
-      "Wilmersdorf",
-      "Schöneberg"
+      "Schöneberg",
+      "Wilmersdorf"
     ],
     "10823": [
       "Schöneberg"
     ],
     "10825": [
-      "Wilmersdorf",
-      "Schöneberg"
+      "Schöneberg",
+      "Wilmersdorf"
     ],
     "10827": [
       "Friedenau",
@@ -240,8 +242,8 @@
     ],
     "12099": [
       "Britz",
-      "Neukölln",
       "Mariendorf",
+      "Neukölln",
       "Tempelhof"
     ],
     "12101": [
@@ -259,9 +261,9 @@
     ],
     "12107": [
       "Buckow",
+      "Lichtenrade",
       "Mariendorf",
       "Marienfelde",
-      "Lichtenrade",
       "Tempelhof"
     ],
     "12109": [
@@ -269,21 +271,21 @@
       "Tempelhof"
     ],
     "12157": [
-      "Steglitz",
       "Friedenau",
-      "Schöneberg"
+      "Schöneberg",
+      "Steglitz"
     ],
     "12159": [
       "Friedenau",
       "Schöneberg"
     ],
     "12161": [
-      "Steglitz",
-      "Friedenau"
+      "Friedenau",
+      "Steglitz"
     ],
     "12163": [
-      "Steglitz",
-      "Friedenau"
+      "Friedenau",
+      "Steglitz"
     ],
     "12165": [
       "Steglitz"
@@ -327,8 +329,8 @@
       "Lichtenrade"
     ],
     "12307": [
-      "Marienfelde",
-      "Lichtenrade"
+      "Lichtenrade",
+      "Marienfelde"
     ],
     "12309": [
       "Lichtenrade"
@@ -364,17 +366,16 @@
       "Rudow"
     ],
     "12435": [
-      "Neukölln",
       "Alt-Treptow",
-      "Plänterwald",
-      "Treptow"
+      "Neukölln",
+      "Plänterwald"
     ],
     "12437": [
       "Baumschulenweg",
       "Plänterwald"
     ],
     "12439": [
-      "Niederschönhausen",
+      "Britz",
       "Niederschöneweide"
     ],
     "12459": [
@@ -396,6 +397,7 @@
     ],
     "12527": [
       "Grünau",
+      "Karolinenhof",
       "Schmöckwitz"
     ],
     "12555": [
@@ -412,9 +414,9 @@
       "Friedrichshagen"
     ],
     "12589": [
-      "Hessenwinckel",
+      "Hessenwinkel",
       "Rahnsdorf",
-      "Treptow"
+      "Wilhelmshagen"
     ],
     "12619": [
       "Hellersdorf",
@@ -454,7 +456,8 @@
     ],
     "13051": [
       "Hohenschönhausen",
-      "Malchow"
+      "Malchow",
+      "Margaretenhöhe"
     ],
     "13053": [
       "Hohenschönhausen"
@@ -474,6 +477,7 @@
       "Weißensee"
     ],
     "13088": [
+      "Malchow",
       "Weißensee"
     ],
     "13089": [
@@ -490,11 +494,12 @@
       "Blankenburg"
     ],
     "13156": [
+      "Niederschönhausen",
       "Rosenthal"
     ],
     "13158": [
       "Französisch Buchholz",
-      "Rosenthal",
+      "Niederschönhausen",
       "Wilhelmsruh"
     ],
     "13159": [
@@ -541,19 +546,19 @@
       "Wittenau"
     ],
     "13405": [
-      "Wedding",
       "Reinickendorf",
-      "Tegel"
+      "Tegel",
+      "Wedding"
     ],
     "13407": [
-      "Wedding",
       "Reinickendorf",
+      "Wedding",
       "Wittenau"
     ],
     "13409": [
       "Gesundbrunnen",
-      "Wedding",
-      "Reinickendorf"
+      "Reinickendorf",
+      "Wedding"
     ],
     "13435": [
       "Märkisches Viertel",
@@ -585,6 +590,7 @@
       "Tegel"
     ],
     "13505": [
+      "Heiligensee",
       "Konradshöhe",
       "Tegel"
     ],
@@ -592,6 +598,7 @@
       "Tegel"
     ],
     "13509": [
+      "Borsigwalde",
       "Reinickendorf",
       "Tegel",
       "Wittenau"
@@ -600,7 +607,6 @@
       "Spandau",
       "Staaken"
     ],
-  
     "13583": [
       "Falkenhagener Feld",
       "Spandau"
@@ -626,6 +632,7 @@
       "Wilhelmstadt"
     ],
     "13595": [
+      "Pichelsdorf",
       "Spandau",
       "Wilhelmstadt"
     ],
@@ -633,10 +640,10 @@
       "Spandau"
     ],
     "13599": [
-      "Tegel",
       "Haselhorst",
       "Siemensstadt",
-      "Spandau"
+      "Spandau",
+      "Tegel"
     ],
     "13627": [
       "Charlottenburg",
@@ -644,21 +651,25 @@
     ],
     "13629": [
       "Charlottenburg",
-      "Tegel",
-      "Siemensstadt"
+      "Siemensstadt",
+      "Tegel"
     ],
     "14050": [
-      "Charlottenburg"
+      "Charlottenburg",
+      "Westend"
     ],
     "14052": [
-      "Charlottenburg"
+      "Charlottenburg",
+      "Westend"
     ],
     "14053": [
-      "Charlottenburg"
+      "Charlottenburg",
+      "Westend"
     ],
     "14055": [
       "Charlottenburg",
       "Grunewald",
+      "Westend",
       "Wilmersdorf"
     ],
     "14057": [
@@ -696,20 +707,20 @@
       "Zehlendorf"
     ],
     "14193": [
-      "Grunewald",
-      "Schmargendorf",
       "Dahlem",
-      "Nikolassee"
+      "Grunewald",
+      "Nikolassee",
+      "Schmargendorf"
     ],
     "14195": [
-      "Schmargendorf",
-      "Wilmersdorf",
       "Dahlem",
-      "Lichterfelde"
+      "Lichterfelde",
+      "Schmargendorf",
+      "Wilmersdorf"
     ],
     "14197": [
-      "Wilmersdorf",
-      "Friedenau"
+      "Friedenau",
+      "Wilmersdorf"
     ],
     "14199": [
       "Grunewald",
