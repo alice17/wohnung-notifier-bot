@@ -7,7 +7,7 @@ listings from deutsche-wohnen.com via their internal API.
 Features:
 ---------
 - Uses the Deutsche Wohnen internal API with 'dataSet=deuwo' filter
-- Fetches listings sorted by date (newest first)
+- Fetches listings sorted by date (newest first via orderBy=date_asc)
 - Uses early termination when encountering known listings
 - Limits fetch to first batch only (live update mode)
 
@@ -59,8 +59,12 @@ class DeutscheWohnenScraper(BaseScraper):
         """
         Fetches the first batch of listings from the Deutsche Wohnen API.
 
+        Uses orderBy=date_asc which, despite the name, returns newest
+        listings first (this is the value the website uses for "neuste
+        zuerst" / newest first).
+
         Returns:
-            List of listing dictionaries from the API.
+            List of listing dictionaries from the API, newest first.
         """
         session = requests.Session()
         session.headers.update(self.headers)
@@ -124,7 +128,7 @@ class DeutscheWohnenScraper(BaseScraper):
             "immoType": "wohnung",
             "limit": str(limit),
             "offset": str(offset),
-            "orderBy": "date_desc",
+            "orderBy": "date_asc",
             "dataSet": "deuwo",
         }
 

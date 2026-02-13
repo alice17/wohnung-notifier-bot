@@ -39,7 +39,7 @@ class TestDeutscheWohnenScraper(unittest.TestCase):
         self.assertEqual(params['immoType'], 'wohnung')
         self.assertEqual(params['limit'], '50')
         self.assertEqual(params['offset'], '0')
-        self.assertEqual(params['orderBy'], 'date_desc')
+        self.assertEqual(params['orderBy'], 'date_asc')
         self.assertEqual(params['dataSet'], 'deuwo')
 
     def test_build_address(self):
