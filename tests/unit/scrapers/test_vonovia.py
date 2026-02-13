@@ -39,7 +39,7 @@ class TestVonoviaScraper(unittest.TestCase):
         self.assertEqual(params['immoType'], 'wohnung')
         self.assertEqual(params['limit'], '50')
         self.assertEqual(params['offset'], '0')
-        self.assertEqual(params['orderBy'], 'date_desc')
+        self.assertEqual(params['orderBy'], 'date_asc')
         # Vonovia does not use dataSet parameter (unlike Deutsche Wohnen)
         self.assertNotIn('dataSet', params)
 

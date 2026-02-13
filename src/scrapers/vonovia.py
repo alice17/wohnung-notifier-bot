@@ -7,7 +7,7 @@ listings from vonovia.de via their internal API.
 Features:
 ---------
 - Uses the Vonovia internal API
-- Fetches listings sorted by date (newest first)
+- Fetches listings sorted by date (newest first via orderBy=date_asc)
 - Uses early termination when encountering known listings
 - Limits fetch to first batch only (live update mode)
 
@@ -124,7 +124,7 @@ class VonoviaScraper(BaseScraper):
             "immoType": "wohnung",
             "limit": str(limit),
             "offset": str(offset),
-            "orderBy": "date_desc",
+            "orderBy": "date_asc",
         }
 
     def _parse_item(self, listing_data: dict) -> Optional[Listing]:
