@@ -4,6 +4,7 @@ This package contains all the scraper implementations.
 from .base import BaseScraper
 from .berlinovo import BerlinovoScraper
 from .deutschewohnen import DeutscheWohnenScraper
+from .immobilienscout import ImmobilienScoutScraper
 from .immowelt import ImmoweltScraper
 from .inberlinwohnen import InBerlinWohnenScraper
 from .kleinanzeigen import KleinanzeigenScraper
@@ -15,6 +16,7 @@ from .vonovia import VonoviaScraper
 SCRAPER_CLASSES = {
     "berlinovo": BerlinovoScraper,
     "inberlinwohnen": InBerlinWohnenScraper,
+    "immobilienscout": ImmobilienScoutScraper,
     "immowelt": ImmoweltScraper,
     "kleinanzeigen": KleinanzeigenScraper,
     "ohnemakler": OhneMaklerScraper,

@@ -64,16 +64,6 @@ class TestImmobilienScoutScraper(unittest.TestCase):
         address = self.scraper._extract_address(real_estate)
         self.assertEqual(address, "Berlin (Prenzlauer Berg)")
 
-    def test_extract_total_price_valid(self):
-        """Test total price extraction with valid value."""
-        real_estate = {"totalRent": 1250.50}
-        price = self.scraper._extract_total_price(real_estate)
-        self.assertEqual(price, "1250.5")
-
-    def test_extract_total_price_missing(self):
-        """Test total price extraction with missing data."""
-        self.assertEqual(self.scraper._extract_total_price({}), "N/A")
-
     def test_extract_rooms_whole_number(self):
         """Test room extraction with whole number."""
         real_estate = {"numberOfRooms": 3}
@@ -111,7 +101,8 @@ class TestImmobilienScoutScraper(unittest.TestCase):
         borough = self.scraper._extract_borough(real_estate, "10115 Berlin")
         self.assertEqual(borough, "Mitte")
 
-    def test_parse_listing_valid(self):
+    @patch.object(ImmobilienScoutScraper, "_fetch_expose_details", return_value=None)
+    def test_parse_listing_valid(self, mock_fetch_expose):
         """Test parsing a valid listing item with current API structure."""
         item = {
             "type": "listing",
@@ -128,7 +119,7 @@ class TestImmobilienScoutScraper(unittest.TestCase):
                 ]
             }
         }
-        listing = self.scraper._parse_listing(item)
+        listing = self.scraper._parse_item(item)
 
         self.assertIsNotNone(listing)
         self.assertEqual(listing.source, "immobilienscout")
@@ -138,39 +129,48 @@ class TestImmobilienScoutScraper(unittest.TestCase):
         self.assertEqual(listing.price_cold, "1000.0")
         self.assertEqual(listing.rooms, "2")
         self.assertEqual(listing.sqm, "60.0")
+        # Expose details fetched since warm rent was missing
+        mock_fetch_expose.assert_called_once_with("123456789")
 
-    def test_parse_listing_with_structured_prices(self):
-        """Test parsing listing with structured warm/cold rent fields."""
+    @patch.object(ImmobilienScoutScraper, "_fetch_expose_details")
+    def test_parse_listing_fetches_warm_rent_from_expose(self, mock_fetch_expose):
+        """Test that _parse_listing fetches warm rent from expose when missing."""
+        mock_fetch_expose.return_value = {
+            "sections": [
+                {
+                    "type": "COST_CHECK",
+                    "totalRent": 1350.50,
+                }
+            ]
+        }
         item = {
             "type": "listing",
             "item": {
-                "id": "123456789",
-                "title": "Schöne Wohnung",
+                "id": "987654321",
+                "title": "Wohnung ohne Warmmiete",
                 "address": {
-                    "line": "Teststraße 10, 10115 Berlin, Mitte"
+                    "line": "Beispielstraße 5, 10115 Berlin, Mitte"
                 },
-                "totalRent": 1200.0,
-                "baseRent": 1000.0,
                 "attributes": [
-                    {"label": "", "value": "1.000 €"},
-                    {"label": "", "value": "60 m²"},
-                    {"label": "", "value": "2 Zi."}
+                    {"label": "", "value": "1.100 €"},
+                    {"label": "", "value": "70 m²"},
+                    {"label": "", "value": "3 Zi."}
                 ]
             }
         }
-        listing = self.scraper._parse_listing(item)
+        listing = self.scraper._parse_item(item)
 
         self.assertIsNotNone(listing)
-        # Structured fields take priority
-        self.assertEqual(listing.price_total, "1200.0")
-        self.assertEqual(listing.price_cold, "1000.0")
-        self.assertEqual(listing.rooms, "2")
-        self.assertEqual(listing.sqm, "60.0")
+        mock_fetch_expose.assert_called_once_with("987654321")
+        # Warm rent comes from expose details
+        self.assertEqual(listing.price_total, "1350.5")
+        # Cold rent comes from attributes
+        self.assertEqual(listing.price_cold, "1100.0")
 
     def test_parse_listing_missing_id(self):
         """Test parsing listing without ID returns None."""
         item = {"resultlist.realEstate": {"address": {}}}
-        listing = self.scraper._parse_listing(item)
+        listing = self.scraper._parse_item(item)
         self.assertIsNone(listing)
 
     def test_extract_listing_items_standard_structure(self):
@@ -245,15 +245,16 @@ class TestImmobilienScoutScraperIntegration(unittest.TestCase):
         """Test that known listings are filtered and tracked."""
         mock_session = MagicMock()
         mock_response = MagicMock()
+        # Newest-first order: new listing first, then known (early termination stops after known)
         mock_response.json.return_value = {
             "resultlistEntry": [
-                {"@id": "known-123", "resultlist.realEstate": {}},
                 {"@id": "new-456", "resultlist.realEstate": {
                     "address": {"postcode": "10115"},
                     "price": {"value": 1000},
                     "numberOfRooms": 2,
                     "livingSpace": 50
                 }},
+                {"@id": "known-123", "resultlist.realEstate": {}},
             ],
             "totalResults": 2
         }
@@ -272,7 +273,10 @@ class TestImmobilienScoutScraperIntegration(unittest.TestCase):
         self.assertIn(
             "https://www.immobilienscout24.de/expose/known-123", seen_known_ids
         )
-        # Only the new listing should be in results
+        # Only the new listing should be in results (known triggers early stop)
+        self.assertIn(
+            "https://www.immobilienscout24.de/expose/new-456", listings
+        )
         self.assertNotIn(
             "https://www.immobilienscout24.de/expose/known-123", listings
         )
@@ -314,11 +318,193 @@ class TestImmobilienScoutScraperIntegration(unittest.TestCase):
         self.assertEqual(params["searchType"], "region")
         self.assertEqual(params["geocodes"], "/de/berlin/berlin")
         self.assertEqual(params["pagenumber"], 2)
+        self.assertEqual(params["sorting"], "-firstactivation")
 
         # Check payload
         payload = call_args[1]["json"]
         self.assertIn("supportedREsultListType", payload)
         self.assertIn("userData", payload)
+
+    def test_fetch_expose_details_success(self):
+        """Test fetching expose details returns parsed JSON."""
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "expose.expose": {
+                "realEstate": {
+                    "price": {"calculatedTotalRent": 1200.0}
+                }
+            }
+        }
+        mock_response.raise_for_status = MagicMock()
+        mock_session.get.return_value = mock_response
+
+        self.scraper._session = mock_session
+        result = self.scraper._fetch_expose_details("158382494")
+
+        self.assertIsNotNone(result)
+        mock_session.get.assert_called_once()
+        self.assertIn("expose/158382494", mock_session.get.call_args[0][0])
+
+    def test_fetch_expose_details_failure(self):
+        """Test fetching expose details returns None on error."""
+        import requests as req
+        mock_session = MagicMock()
+        mock_session.get.side_effect = req.RequestException("Connection error")
+
+        self.scraper._session = mock_session
+        result = self.scraper._fetch_expose_details("158382494")
+
+        self.assertIsNone(result)
+
+    def test_is_blocked_agent_tauschwohnung(self):
+        """Test that Tauschwohnung GmbH is detected as blocked agent."""
+        expose = {
+            "sections": [
+                {
+                    "type": "AGENTS_INFO",
+                    "title": "Anbieter Informationen",
+                    "company": "Tauschwohnung GmbH",
+                    "name": "Tauschwohnung Wohnungstausch",
+                }
+            ]
+        }
+        self.assertTrue(self.scraper._is_blocked_agent(expose))
+
+    def test_is_blocked_agent_wohnungsswap(self):
+        """Test that Wohnungsswap.de - Relocasa AB is detected as blocked agent."""
+        expose = {
+            "sections": [
+                {
+                    "type": "AGENTS_INFO",
+                    "title": "Anbieter Informationen",
+                    "company": "Wohnungsswap.de - Relocasa AB -",
+                    "name": "Wohnungsswap",
+                }
+            ]
+        }
+        self.assertTrue(self.scraper._is_blocked_agent(expose))
+
+    def test_is_blocked_agent_regular_company(self):
+        """Test that a regular company is not blocked."""
+        expose = {
+            "sections": [
+                {
+                    "type": "AGENTS_INFO",
+                    "title": "Anbieter Informationen",
+                    "company": "Hausverwaltung Müller GmbH",
+                    "name": "Max Müller",
+                }
+            ]
+        }
+        self.assertFalse(self.scraper._is_blocked_agent(expose))
+
+    def test_is_blocked_agent_no_sections(self):
+        """Test that missing sections does not crash."""
+        expose = {"header": {"id": "123"}}
+        self.assertFalse(self.scraper._is_blocked_agent(expose))
+
+    def test_is_blocked_agent_no_company_field(self):
+        """Test that missing company field does not crash."""
+        expose = {
+            "sections": [
+                {"type": "AGENTS_INFO", "title": "Anbieter Informationen"}
+            ]
+        }
+        self.assertFalse(self.scraper._is_blocked_agent(expose))
+
+    @patch.object(ImmobilienScoutScraper, "_fetch_expose_details")
+    def test_parse_item_skips_blocked_agent(self, mock_fetch_expose):
+        """Test that _parse_item returns None for blocked agents."""
+        mock_fetch_expose.return_value = {
+            "sections": [
+                {
+                    "type": "AGENTS_INFO",
+                    "company": "Tauschwohnung GmbH",
+                    "name": "Tauschwohnung Wohnungstausch",
+                },
+                {"type": "COST_CHECK", "totalRent": 900.0},
+            ]
+        }
+        item = {
+            "type": "listing",
+            "item": {
+                "id": "111222333",
+                "address": {"line": "Swapstraße 1, 10115 Berlin"},
+                "attributes": [
+                    {"label": "", "value": "800 €"},
+                    {"label": "", "value": "50 m²"},
+                    {"label": "", "value": "2 Zi."},
+                ],
+            },
+        }
+        listing = self.scraper._parse_item(item)
+        self.assertIsNone(listing)
+
+    def test_extract_warm_rent_from_cost_check_section(self):
+        """Test warm rent extraction from COST_CHECK section."""
+        expose = {
+            "sections": [
+                {"type": "MEDIA", "media": []},
+                {"type": "COST_CHECK", "totalRent": 1388.4, "expenses": []},
+            ]
+        }
+        result = self.scraper._extract_warm_rent_from_expose(expose)
+        self.assertEqual(result, "1388.4")
+
+    def test_extract_warm_rent_from_kosten_attribute_list(self):
+        """Test warm rent extraction from Kosten ATTRIBUTE_LIST fallback."""
+        expose = {
+            "sections": [
+                {
+                    "type": "ATTRIBUTE_LIST",
+                    "title": "Kosten",
+                    "attributes": [
+                        {"type": "TEXT", "label": "Kaltmiete (zzgl. Nebenkosten):", "text": "1.275 €"},
+                        {"type": "TEXT", "label": "Nebenkosten:", "text": "71,40 €"},
+                        {"type": "TEXT", "label": "Gesamtmiete:", "text": "1.388,40 €"},
+                    ],
+                }
+            ]
+        }
+        result = self.scraper._extract_warm_rent_from_expose(expose)
+        self.assertEqual(result, "1388.4")
+
+    def test_extract_warm_rent_from_expose_prefers_cost_check(self):
+        """Test that COST_CHECK is preferred over Kosten ATTRIBUTE_LIST."""
+        expose = {
+            "sections": [
+                {"type": "COST_CHECK", "totalRent": 1400.0},
+                {
+                    "type": "ATTRIBUTE_LIST",
+                    "title": "Kosten",
+                    "attributes": [
+                        {"type": "TEXT", "label": "Gesamtmiete:", "text": "1.388,40 €"},
+                    ],
+                },
+            ]
+        }
+        result = self.scraper._extract_warm_rent_from_expose(expose)
+        self.assertEqual(result, "1400.0")
+
+    def test_extract_warm_rent_from_expose_missing(self):
+        """Test warm rent extraction returns N/A when not found."""
+        expose = {"sections": [{"type": "MEDIA", "media": []}]}
+        result = self.scraper._extract_warm_rent_from_expose(expose)
+        self.assertEqual(result, "N/A")
+
+    def test_extract_warm_rent_from_expose_no_sections(self):
+        """Test warm rent extraction returns N/A when sections missing."""
+        expose = {"header": {"id": "123"}}
+        result = self.scraper._extract_warm_rent_from_expose(expose)
+        self.assertEqual(result, "N/A")
+
+    def test_parse_german_price(self):
+        """Test German price string parsing."""
+        self.assertEqual(ImmobilienScoutScraper._parse_german_price("1.388,40 €"), "1388.4")
+        self.assertEqual(ImmobilienScoutScraper._parse_german_price("1.275 €"), "1275.0")
+        self.assertEqual(ImmobilienScoutScraper._parse_german_price("71,40 €"), "71.4")
+        self.assertEqual(ImmobilienScoutScraper._parse_german_price("keine Angabe"), "N/A")
 
     def test_is_listing_active_returns_true_on_200(self):
         """Test is_listing_active returns True when listing exists."""
