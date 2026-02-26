@@ -15,7 +15,6 @@ Limitations:
 -----------
 - API responses may vary, some fields might not always be available
 - Rate limiting may apply from ImmobilienScout24
-- Cannot determine WBS status from API (defaults to False)
 """
 import logging
 import re
@@ -46,16 +45,21 @@ class ImmobilienScoutScraper(BaseScraper):
     # User-Agent format from mobile app (see: github.com/orangecoding/fredy)
     USER_AGENT = "ImmoScout_27.12_26.2_._"
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, user_has_wbs: Optional[bool] = None):
         """
         Initializes the ImmobilienScout24 scraper.
 
         Args:
             name: Display name for this scraper instance.
+            user_has_wbs: Whether the user holds a WBS certificate.
+                True  → include WBS listings (haspromotion=true).
+                False → exclude WBS listings (haspromotion=false).
+                None  → no filtering applied (param omitted).
         """
         super().__init__(name)
         self.url = f"{self.BASE_URL}/Suche{self.REGION}"
         self._session: Optional[requests.Session] = None
+        self._user_has_wbs = user_has_wbs
 
     @property
     def session(self) -> requests.Session:
@@ -150,7 +154,10 @@ class ImmobilienScoutScraper(BaseScraper):
             "geocodes": self.REGION,
             "pagenumber": page_number,
             "sorting": self.SORT_NEWEST_FIRST,
+            "exclusioncriteria": "swapflat",
         }
+        if self._user_has_wbs is not None:
+            params["haspromotion"] = "true" if self._user_has_wbs else "false"
 
         # Required payload for the mobile API
         payload = {
@@ -241,34 +248,6 @@ class ImmobilienScoutScraper(BaseScraper):
         except requests.RequestException as exc:
             logger.debug(f"Failed to fetch expose details for {expose_id}: {exc}")
             return None
-
-    # Company names to exclude (apartment swap services, not real listings)
-    BLOCKED_AGENTS = [
-        "tauschwohnung gmbh",
-        "wohnungsswap.de - relocasa ab -",
-    ]
-
-    def _is_blocked_agent(self, expose: Dict[str, Any]) -> bool:
-        """
-        Checks whether the listing belongs to a blocked agent.
-
-        Inspects the ``AGENTS_INFO`` section of the expose detail response
-        and compares the ``company`` field against a blocklist of swap
-        services that are not real rental listings.
-
-        Args:
-            expose: Expose detail response dictionary.
-
-        Returns:
-            True if the listing agent is on the blocklist, False otherwise.
-        """
-        for section in expose.get("sections", []):
-            if section.get("type") == "AGENTS_INFO":
-                company = (section.get("company") or "").lower()
-                for blocked in self.BLOCKED_AGENTS:
-                    if blocked in company:
-                        return True
-        return False
 
     def _extract_warm_rent_from_expose(self, expose: Dict[str, Any]) -> str:
         """
@@ -418,14 +397,8 @@ class ImmobilienScoutScraper(BaseScraper):
             if expose_id:
                 expose_details = self._fetch_expose_details(str(expose_id))
                 if expose_details:
-                    if self._is_blocked_agent(expose_details):
-                        logger.debug(
-                            f"Skipping listing {expose_id}: blocked agent (swap service)"
-                        )
-                        return None
                     price_total = self._extract_warm_rent_from_expose(expose_details)
 
-            # WBS status - not typically available in API, default to False
             wbs = False
 
             return Listing(

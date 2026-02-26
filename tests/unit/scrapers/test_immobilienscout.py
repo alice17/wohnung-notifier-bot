@@ -319,11 +319,58 @@ class TestImmobilienScoutScraperIntegration(unittest.TestCase):
         self.assertEqual(params["geocodes"], "/de/berlin/berlin")
         self.assertEqual(params["pagenumber"], 2)
         self.assertEqual(params["sorting"], "-firstactivation")
+        self.assertEqual(params["exclusioncriteria"], "swapflat")
+        self.assertNotIn("haspromotion", params)
 
         # Check payload
         payload = call_args[1]["json"]
         self.assertIn("supportedREsultListType", payload)
         self.assertIn("userData", payload)
+
+    def test_fetch_page_haspromotion_false_when_no_wbs(self):
+        """Test that haspromotion=false when user does not have WBS."""
+        scraper = ImmobilienScoutScraper("immobilienscout", user_has_wbs=False)
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"resultListItems": []}
+        mock_response.raise_for_status = MagicMock()
+        mock_session.post.return_value = mock_response
+        scraper._session = mock_session
+
+        scraper._fetch_page(page_number=1)
+
+        params = mock_session.post.call_args[1]["params"]
+        self.assertEqual(params["haspromotion"], "false")
+
+    def test_fetch_page_haspromotion_true_when_has_wbs(self):
+        """Test that haspromotion=true when user has WBS."""
+        scraper = ImmobilienScoutScraper("immobilienscout", user_has_wbs=True)
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"resultListItems": []}
+        mock_response.raise_for_status = MagicMock()
+        mock_session.post.return_value = mock_response
+        scraper._session = mock_session
+
+        scraper._fetch_page(page_number=1)
+
+        params = mock_session.post.call_args[1]["params"]
+        self.assertEqual(params["haspromotion"], "true")
+
+    def test_fetch_page_no_haspromotion_when_wbs_none(self):
+        """Test that haspromotion is omitted when WBS setting is not configured."""
+        scraper = ImmobilienScoutScraper("immobilienscout", user_has_wbs=None)
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"resultListItems": []}
+        mock_response.raise_for_status = MagicMock()
+        mock_session.post.return_value = mock_response
+        scraper._session = mock_session
+
+        scraper._fetch_page(page_number=1)
+
+        params = mock_session.post.call_args[1]["params"]
+        self.assertNotIn("haspromotion", params)
 
     def test_fetch_expose_details_success(self):
         """Test fetching expose details returns parsed JSON."""
@@ -356,90 +403,6 @@ class TestImmobilienScoutScraperIntegration(unittest.TestCase):
         result = self.scraper._fetch_expose_details("158382494")
 
         self.assertIsNone(result)
-
-    def test_is_blocked_agent_tauschwohnung(self):
-        """Test that Tauschwohnung GmbH is detected as blocked agent."""
-        expose = {
-            "sections": [
-                {
-                    "type": "AGENTS_INFO",
-                    "title": "Anbieter Informationen",
-                    "company": "Tauschwohnung GmbH",
-                    "name": "Tauschwohnung Wohnungstausch",
-                }
-            ]
-        }
-        self.assertTrue(self.scraper._is_blocked_agent(expose))
-
-    def test_is_blocked_agent_wohnungsswap(self):
-        """Test that Wohnungsswap.de - Relocasa AB is detected as blocked agent."""
-        expose = {
-            "sections": [
-                {
-                    "type": "AGENTS_INFO",
-                    "title": "Anbieter Informationen",
-                    "company": "Wohnungsswap.de - Relocasa AB -",
-                    "name": "Wohnungsswap",
-                }
-            ]
-        }
-        self.assertTrue(self.scraper._is_blocked_agent(expose))
-
-    def test_is_blocked_agent_regular_company(self):
-        """Test that a regular company is not blocked."""
-        expose = {
-            "sections": [
-                {
-                    "type": "AGENTS_INFO",
-                    "title": "Anbieter Informationen",
-                    "company": "Hausverwaltung Müller GmbH",
-                    "name": "Max Müller",
-                }
-            ]
-        }
-        self.assertFalse(self.scraper._is_blocked_agent(expose))
-
-    def test_is_blocked_agent_no_sections(self):
-        """Test that missing sections does not crash."""
-        expose = {"header": {"id": "123"}}
-        self.assertFalse(self.scraper._is_blocked_agent(expose))
-
-    def test_is_blocked_agent_no_company_field(self):
-        """Test that missing company field does not crash."""
-        expose = {
-            "sections": [
-                {"type": "AGENTS_INFO", "title": "Anbieter Informationen"}
-            ]
-        }
-        self.assertFalse(self.scraper._is_blocked_agent(expose))
-
-    @patch.object(ImmobilienScoutScraper, "_fetch_expose_details")
-    def test_parse_item_skips_blocked_agent(self, mock_fetch_expose):
-        """Test that _parse_item returns None for blocked agents."""
-        mock_fetch_expose.return_value = {
-            "sections": [
-                {
-                    "type": "AGENTS_INFO",
-                    "company": "Tauschwohnung GmbH",
-                    "name": "Tauschwohnung Wohnungstausch",
-                },
-                {"type": "COST_CHECK", "totalRent": 900.0},
-            ]
-        }
-        item = {
-            "type": "listing",
-            "item": {
-                "id": "111222333",
-                "address": {"line": "Swapstraße 1, 10115 Berlin"},
-                "attributes": [
-                    {"label": "", "value": "800 €"},
-                    {"label": "", "value": "50 m²"},
-                    {"label": "", "value": "2 Zi."},
-                ],
-            },
-        }
-        listing = self.scraper._parse_item(item)
-        self.assertIsNone(listing)
 
     def test_extract_warm_rent_from_cost_check_section(self):
         """Test warm rent extraction from COST_CHECK section."""
