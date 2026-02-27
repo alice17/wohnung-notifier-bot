@@ -399,8 +399,6 @@ class ImmobilienScoutScraper(BaseScraper):
                 if expose_details:
                     price_total = self._extract_warm_rent_from_expose(expose_details)
 
-            wbs = False
-
             return Listing(
                 source=self.name,
                 address=address,
@@ -409,7 +407,9 @@ class ImmobilienScoutScraper(BaseScraper):
                 price_cold=price_cold,
                 price_total=price_total,
                 rooms=rooms,
-                wbs=wbs,
+                # since immobilienscout24 does not provide WBS status, we set it to False if the user does not have WBS
+                # and to None if the user has not set a value for WBS
+                wbs=False if self._user_has_wbs is False else None,
                 identifier=identifier,
             )
 

@@ -93,7 +93,7 @@ class DatabaseManager:
             price_cold=row["price_cold"],
             price_total=row["price_total"],
             rooms=row["rooms"],
-            wbs=bool(row["wbs"]),
+            wbs=None if row["wbs"] is None else bool(row["wbs"]),
             identifier=row["identifier"],
         )
 
@@ -235,7 +235,7 @@ class DatabaseManager:
             listing.price_cold,
             listing.price_total,
             listing.rooms,
-            int(listing.wbs),
+            None if listing.wbs is None else int(listing.wbs),
         )
 
     def save_listings(self, listings: Dict[str, Listing]) -> bool:
