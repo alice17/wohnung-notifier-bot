@@ -18,7 +18,7 @@ Limitations:
 """
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
@@ -417,7 +417,9 @@ class ImmobilienScoutScraper(BaseScraper):
             logger.debug(f"Error parsing listing: {exc}")
             return None
 
-    def _parse_attributes(self, attributes: List[Dict[str, Any]]) -> tuple:
+    def _parse_attributes(
+        self, attributes: List[Dict[str, Any]]
+    ) -> Tuple[str, str, str]:
         """
         Parses the attributes array to extract price, sqm, and rooms.
 
@@ -428,9 +430,9 @@ class ImmobilienScoutScraper(BaseScraper):
             attributes: List of attribute dictionaries.
 
         Returns:
-            Tuple of (price_total, sqm, rooms) as strings.
+            Tuple of (price_cold, sqm, rooms) as strings.
         """
-        price_total = "N/A"
+        price_cold = "N/A"
         sqm = "N/A"
         rooms = "N/A"
 
@@ -439,38 +441,23 @@ class ImmobilienScoutScraper(BaseScraper):
             if not value:
                 continue
 
-            # Price: contains € symbol
             if "€" in value:
-                # Clean: "2.440 €" -> "2440"
-                price_str = value.replace("€", "").replace("\xa0", "").replace(".", "").replace(",", ".").strip()
-                try:
-                    price_total = str(round(float(price_str), 2))
-                except ValueError:
-                    price_total = price_str
-
-            # Square meters: contains m²
+                price_cold = self._parse_german_price(value)
             elif "m²" in value:
-                # Clean: "137 m²" -> "137"
-                sqm_str = value.replace("m²", "").replace("\xa0", "").replace(",", ".").strip()
+                cleaned = value.replace("m²", "").replace("\xa0", "").replace(",", ".").strip()
                 try:
-                    sqm = str(round(float(sqm_str), 2))
+                    sqm = str(round(float(cleaned), 2))
                 except ValueError:
-                    sqm = sqm_str
-
-            # Rooms: contains "Zi." or just a number
+                    sqm = cleaned
             elif "Zi" in value:
-                # Clean: "4 Zi." -> "4"
-                rooms_str = value.replace("Zi.", "").replace("Zi", "").replace("\xa0", "").replace(",", ".").strip()
+                cleaned = value.replace("Zi.", "").replace("Zi", "").replace("\xa0", "").replace(",", ".").strip()
                 try:
-                    rooms_float = float(rooms_str)
-                    if rooms_float == int(rooms_float):
-                        rooms = str(int(rooms_float))
-                    else:
-                        rooms = str(rooms_float)
+                    rooms_float = float(cleaned)
+                    rooms = str(int(rooms_float)) if rooms_float == int(rooms_float) else str(rooms_float)
                 except ValueError:
-                    rooms = rooms_str
+                    rooms = cleaned
 
-        return price_total, sqm, rooms
+        return price_cold, sqm, rooms
 
     def _extract_address(self, real_estate: Dict[str, Any]) -> str:
         """
@@ -543,49 +530,3 @@ class ImmobilienScoutScraper(BaseScraper):
             return str(round(float(value), 2))
         except (ValueError, TypeError):
             return str(value)
-
-    def _extract_rooms(self, real_estate: Dict[str, Any]) -> str:
-        """
-        Extracts room count from listing data.
-
-        Args:
-            real_estate: Real estate data dictionary.
-
-        Returns:
-            Room count as string or 'N/A'.
-        """
-        # Try multiple field names
-        for field in ["numberOfRooms", "rooms", "roomCount", "noRooms"]:
-            rooms = real_estate.get(field)
-            if rooms is not None:
-                try:
-                    rooms_float = float(rooms)
-                    if rooms_float == int(rooms_float):
-                        return str(int(rooms_float))
-                    return str(rooms_float)
-                except (ValueError, TypeError):
-                    return str(rooms)
-
-        return "N/A"
-
-    def _extract_sqm(self, real_estate: Dict[str, Any]) -> str:
-        """
-        Extracts square meters from listing data.
-
-        Args:
-            real_estate: Real estate data dictionary.
-
-        Returns:
-            Square meters as string or 'N/A'.
-        """
-        # Try multiple field names
-        for field in ["livingSpace", "area", "size", "squareMeters", "livingArea"]:
-            sqm = real_estate.get(field)
-            if sqm is not None:
-                try:
-                    return str(round(float(sqm), 2))
-                except (ValueError, TypeError):
-                    return str(sqm)
-
-        return "N/A"
-

@@ -64,31 +64,47 @@ class TestImmobilienScoutScraper(unittest.TestCase):
         address = self.scraper._extract_address(real_estate)
         self.assertEqual(address, "Berlin (Prenzlauer Berg)")
 
-    def test_extract_rooms_whole_number(self):
-        """Test room extraction with whole number."""
-        real_estate = {"numberOfRooms": 3}
-        rooms = self.scraper._extract_rooms(real_estate)
-        self.assertEqual(rooms, "3")
+    def test_parse_attributes_full(self):
+        """Test attribute parsing with price, sqm, and rooms."""
+        attributes = [
+            {"label": "", "value": "2.440 €"},
+            {"label": "", "value": "137 m²"},
+            {"label": "", "value": "4 Zi."},
+        ]
+        price, sqm, rooms = self.scraper._parse_attributes(attributes)
+        self.assertEqual(price, "2440.0")
+        self.assertEqual(sqm, "137.0")
+        self.assertEqual(rooms, "4")
 
-    def test_extract_rooms_decimal(self):
-        """Test room extraction with decimal."""
-        real_estate = {"numberOfRooms": 2.5}
-        rooms = self.scraper._extract_rooms(real_estate)
+    def test_parse_attributes_decimal_rooms(self):
+        """Test attribute parsing with half rooms."""
+        attributes = [{"label": "", "value": "2,5 Zi."}]
+        _, _, rooms = self.scraper._parse_attributes(attributes)
         self.assertEqual(rooms, "2.5")
 
-    def test_extract_rooms_missing(self):
-        """Test room extraction with missing data."""
-        self.assertEqual(self.scraper._extract_rooms({}), "N/A")
+    def test_parse_attributes_empty(self):
+        """Test attribute parsing with no data returns N/A defaults."""
+        price, sqm, rooms = self.scraper._parse_attributes([])
+        self.assertEqual(price, "N/A")
+        self.assertEqual(sqm, "N/A")
+        self.assertEqual(rooms, "N/A")
 
-    def test_extract_sqm_valid(self):
-        """Test square meter extraction."""
-        real_estate = {"livingSpace": 75.5}
-        sqm = self.scraper._extract_sqm(real_estate)
+    def test_parse_attributes_decimal_sqm(self):
+        """Test attribute parsing with decimal square meters."""
+        attributes = [{"label": "", "value": "75,5 m²"}]
+        _, sqm, _ = self.scraper._parse_attributes(attributes)
         self.assertEqual(sqm, "75.5")
 
-    def test_extract_sqm_missing(self):
-        """Test square meter extraction with missing data."""
-        self.assertEqual(self.scraper._extract_sqm({}), "N/A")
+    def test_parse_attributes_skips_empty_values(self):
+        """Test that attributes with empty values are skipped."""
+        attributes = [
+            {"label": "price", "value": ""},
+            {"label": "", "value": "60 m²"},
+        ]
+        price, sqm, rooms = self.scraper._parse_attributes(attributes)
+        self.assertEqual(price, "N/A")
+        self.assertEqual(sqm, "60.0")
+        self.assertEqual(rooms, "N/A")
 
     def test_extract_borough_from_postcode(self):
         """Test borough extraction using postcode."""
