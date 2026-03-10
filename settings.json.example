@@ -12,6 +12,9 @@
     "inberlinwohnen": {
       "enabled": true
     },
+    "immobilienscout": {
+      "enabled": true
+    },
     "immowelt": {
       "enabled": true
     },

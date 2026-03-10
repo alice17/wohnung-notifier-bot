@@ -34,11 +34,20 @@ def load_scrapers(config: Config) -> List[BaseScraper]:
         List of instantiated scraper objects.
     """
     scrapers = []
+    user_has_wbs = (
+        config.filters
+        .get("properties", {})
+        .get("wbs", {})
+        .get("has_wbs")
+    )
     for name, scraper_config in config.scrapers.items():
         if scraper_config.get("enabled", False):
             if name in SCRAPER_CLASSES:
                 scraper_class = SCRAPER_CLASSES[name]
-                scrapers.append(scraper_class(name=name))
+                kwargs = {"name": name}
+                if name == "immobilienscout":
+                    kwargs["user_has_wbs"] = user_has_wbs
+                scrapers.append(scraper_class(**kwargs))
                 logger.info(f"Enabled scraper: {name}")
             else:
                 logger.warning(
